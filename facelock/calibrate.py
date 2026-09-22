@@ -36,11 +36,16 @@ from facelock.gui import (
     BG_SURFACE,
     BG_SURFACE_ALT,
     BG_SURFACE_HOVER,
+    BORDER_ACTIVE,
     BORDER_COLOR,
+    BORDER_GLASS_LIGHT,
     COLOR_AMBER,
     COLOR_CYAN,
+    COLOR_CYAN_DIM,
+    COLOR_CYAN_HOVER,
     COLOR_EMERALD,
     COLOR_EMERALD_BG,
+    COLOR_EMERALD_BORDER,
     COLOR_ROSE,
     COLOR_ROSE_BG,
     COLOR_SKY,
@@ -55,6 +60,7 @@ from facelock.gui import (
     TEXT_MAIN,
     TEXT_MUTED,
     TEXT_SUBTLE,
+    apply_window_glass_effect,
     center_window_on_monitor,
     draw_hud_pill,
 )
@@ -84,6 +90,7 @@ class CalibrateStudio:
         self.root.configure(bg=BG_APP)
         self.root.minsize(1120, 760)
         center_window_on_monitor(self.root, 1260, 840)
+        apply_window_glass_effect(self.root, "FaceLock Calibration")
 
         if LOGO_PATH.exists():
             try:
@@ -116,8 +123,8 @@ class CalibrateStudio:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self):
-        # Top Header
-        top_bar = tk.Frame(self.root, bg=BG_SURFACE, height=60, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Top Header (Frosted Glass Header)
+        top_bar = tk.Frame(self.root, bg=BG_SURFACE, height=60, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         top_bar.pack(fill=tk.X, side=tk.TOP)
         top_bar.pack_propagate(False)
 
@@ -140,6 +147,8 @@ class CalibrateStudio:
             bg=COLOR_EMERALD_BG,
             padx=12,
             pady=4,
+            highlightthickness=1,
+            highlightbackground=COLOR_EMERALD_BORDER,
         )
         self.status_pill.pack(side=tk.RIGHT)
 
@@ -147,15 +156,15 @@ class CalibrateStudio:
         main_content = tk.Frame(self.root, bg=BG_APP)
         main_content.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
 
-        # Video Panel
-        video_wrap = tk.Frame(main_content, bg=BG_SURFACE, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Video Panel (Frosted Glass Card)
+        video_wrap = tk.Frame(main_content, bg=BG_SURFACE, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         video_wrap.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
 
-        self.video_lbl = tk.Label(video_wrap, bg="#080C14")
+        self.video_lbl = tk.Label(video_wrap, bg="#04070F")
         self.video_lbl.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
-        # Right Control Panel
-        right_panel = tk.Frame(main_content, bg=BG_SURFACE, width=360, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Right Control Panel (Frosted Glass Card)
+        right_panel = tk.Frame(main_content, bg=BG_SURFACE, width=360, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
@@ -171,7 +180,7 @@ class CalibrateStudio:
         ).pack(anchor="w", pady=(0, 10))
 
         # Telemetry labels card
-        telem_card = tk.Frame(inner_right, bg=BG_SURFACE_ALT, padx=12, pady=10)
+        telem_card = tk.Frame(inner_right, bg=BG_SURFACE_ALT, padx=12, pady=10, highlightthickness=1, highlightbackground=BORDER_COLOR)
         telem_card.pack(fill=tk.X, pady=(0, 15))
 
         self.lbl_v_ratio = tk.Label(telem_card, text="Vertical Ratio (v): --", font=FONT_BODY, fg=COLOR_CYAN, bg=BG_SURFACE_ALT)
@@ -203,9 +212,11 @@ class CalibrateStudio:
             text="🎯  Start Guided Calibration (3 Steps)",
             font=FONT_BODY_BOLD,
             bg_color=COLOR_CYAN,
-            fg_color="#0B1320",
-            hover_color="#7DD3FC",
-            hover_fg="#0B1320",
+            fg_color="#070B12",
+            hover_color=COLOR_CYAN_HOVER,
+            hover_fg="#070B12",
+            border_color=COLOR_CYAN_DIM,
+            hover_border=COLOR_CYAN_HOVER,
             padx=12,
             pady=10,
             command=self._start_calibration,
@@ -220,6 +231,8 @@ class CalibrateStudio:
             fg_color=TEXT_MAIN,
             hover_color=BG_SURFACE_HOVER,
             hover_fg="#FFFFFF",
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             padx=12,
             pady=10,
             command=self._start_recording,
@@ -234,6 +247,8 @@ class CalibrateStudio:
             fg_color=TEXT_MUTED,
             hover_color=BG_SURFACE_ALT,
             hover_fg=TEXT_MAIN,
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             padx=12,
             pady=8,
             command=self._reset_defaults,
@@ -241,7 +256,7 @@ class CalibrateStudio:
         self.btn_apply_defaults.pack(fill=tk.X, pady=4)
 
         # Instruction / Progress Box
-        self.guide_box = tk.Frame(inner_right, bg=BG_SURFACE_ALT, highlightthickness=1, highlightbackground=BORDER_COLOR, padx=12, pady=12)
+        self.guide_box = tk.Frame(inner_right, bg=BG_SURFACE_ALT, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT, padx=12, pady=12)
         self.guide_box.pack(fill=tk.BOTH, expand=True, pady=(15, 0))
 
         self.guide_title = tk.Label(

@@ -42,9 +42,23 @@ LOGO_PATH = ASSETS_DIR / "logo_small.png"
 SPLASH_BANNER_PATH = ASSETS_DIR / "splash_banner.png"
 
 
+def apply_window_glass_effect(window: tk.Tk | tk.Toplevel, title: str = "FaceLock") -> None:
+    """Apply Linux/Ubuntu window compositor glass translucency and dark styling hints."""
+    try:
+        window.update_idletasks()
+    except Exception:
+        pass
+
+    try:
+        window.wm_attributes("-alpha", 0.98)
+    except Exception:
+        pass
+
+
 def _detect_font_family() -> str:
     try:
         import tkinter.font as tkfont
+
         root = tk._default_root
         should_destroy = False
         if root is None:
@@ -54,12 +68,25 @@ def _detect_font_family() -> str:
         fams = set(tkfont.families(root))
         if should_destroy:
             root.destroy()
-        for preferred in ("DejaVu Sans", "Liberation Sans", "Noto Sans", "Ubuntu", "Segoe UI", "Cantarell"):
+
+        preferred_list = (
+            "Ubuntu",
+            "Ubuntu Sans",
+            "Cantarell",
+            "Inter",
+            "DejaVu Sans",
+            "Liberation Sans",
+            "Noto Sans",
+        )
+
+        for preferred in preferred_list:
             if preferred in fams:
                 return preferred
     except Exception:
         pass
     return "Helvetica"
+
+
 
 
 FONT_FAMILY = _detect_font_family()
@@ -73,45 +100,54 @@ FONT_CHIP = (FONT_FAMILY, 8, "bold")
 FONT_CAPTION = (FONT_FAMILY, 8)
 FONT_SMALL = (FONT_FAMILY, 7)
 
-# Design System Palette: Serene Obsidian & Soft Azure (Modern, Soothing, Glare-Free)
-BG_APP = "#0D1117"               # Calming dark slate canvas
-BG_SURFACE = "#151C28"           # Soothing card surface
-BG_SURFACE_ALT = "#1E2738"       # Elevated secondary surface / input wells
-BG_SURFACE_HOVER = "#2D3B55"     # Distinct, soothing interactive hover
-BORDER_COLOR = "#222D3E"         # Subtle, gentle card boundary
-BORDER_ACTIVE = "#38BDF8"        # Soft sky blue focus boundary
+# =============================================================================
+# Glassmorphism Design System: Frosted Obsidian Glass & Luminous Neon
+# =============================================================================
+BG_APP = "#070B12"               # Deep space midnight canvas
+BG_SURFACE = "#0F1626"           # Frosted glass card surface
+BG_SURFACE_ALT = "#162034"       # Elevated glass card / input wells
+BG_SURFACE_HOVER = "#212F4C"     # Glass refraction hover sheen
+BORDER_COLOR = "#1C2A42"         # Translucent glass boundary rim
+BORDER_ACTIVE = "#38BDF8"        # Luminous azure focus / active neon rim
+BORDER_GLASS_LIGHT = "#2B3D5E"   # Top-edge specular glass reflection
+BORDER_GLASS_ACCENT = "#818CF8"  # Electric indigo glass accent
 
-# Calming Accents
-COLOR_SKY = "#38BDF8"            # Primary brand / soothing azure sky
-COLOR_SKY_HOVER = "#7DD3FC"      # Soft hover sky
-COLOR_SKY_DIM = "#0284C7"        # Dim azure for borders/fills
-COLOR_CYAN = COLOR_SKY           # Alias for compatibility with existing references
+# Luminous Glass Accents
+COLOR_SKY = "#38BDF8"            # Electric azure neon
+COLOR_SKY_HOVER = "#7DD3FC"      # Luminous hover cyan
+COLOR_SKY_DIM = "#0284C7"        # Dim azure glass accent
+COLOR_CYAN = COLOR_SKY           # Alias for compatibility
+COLOR_CYAN_HOVER = COLOR_SKY_HOVER
 COLOR_CYAN_DIM = COLOR_SKY_DIM   # Alias for compatibility
+COLOR_CYAN_BORDER = BORDER_ACTIVE
 
-COLOR_EMERALD = "#34D399"        # Soft mint/emerald for success & live match
-COLOR_EMERALD_BG = "#064E3B"     # Soft muted deep green badge background
-COLOR_EMERALD_TEXT = "#A7F3D0"   # Light mint text for badges
+COLOR_EMERALD = "#34D399"        # Luminous mint / emerald
+COLOR_EMERALD_BG = "#064E3B"     # Frosted deep emerald tint
+COLOR_EMERALD_BORDER = "#059669" # Emerald glass rim
+COLOR_EMERALD_TEXT = "#A7F3D0"   # Light mint text
 
-COLOR_AMBER = "#FBBF24"          # Warm soothing honey/amber for warnings & pause
-COLOR_AMBER_BG = "#451A03"       # Muted amber badge bg
+COLOR_AMBER = "#FBBF24"          # Glowing warm amber
+COLOR_AMBER_BG = "#451A03"       # Frosted amber tint
+COLOR_AMBER_BORDER = "#D97706"   # Amber glass rim
 COLOR_AMBER_TEXT = "#FDE68A"
 
-COLOR_ROSE = "#FB7185"           # Gentle soft rose/coral for spoof/errors
-COLOR_ROSE_BG = "#4C0519"        # Muted deep rose badge background
+COLOR_ROSE = "#FB7185"           # Glowing coral / rose
+COLOR_ROSE_BG = "#4C0519"        # Frosted rose tint
+COLOR_ROSE_BORDER = "#E11D48"    # Rose glass rim
 COLOR_ROSE_TEXT = "#FECDD3"
 
-TEXT_MAIN = "#F1F5F9"            # Soft crisp off-white (prevents high-contrast glare)
-TEXT_MUTED = "#94A3B8"           # Soothing secondary text (slate-400)
-TEXT_SUBTLE = "#64748B"          # Dim tertiary metadata (slate-500)
+TEXT_MAIN = "#F8FAFC"            # Crisp luminous off-white
+TEXT_MUTED = "#94A3B8"           # Soothing slate-400
+TEXT_SUBTLE = "#64748B"          # Dim slate-500
 
-# Soothing OpenCV Camera Overlay Colors (BGR)
+# Frosted Glass OpenCV Overlay Colors (BGR)
 BGR_SKY = (248, 189, 56)         # #38BDF8 in BGR
 BGR_MINT = (153, 211, 52)        # #34D399 in BGR
 BGR_CORAL = (133, 113, 251)      # #FB7185 in BGR
 BGR_AMBER = (36, 191, 251)       # #FBBF24 in BGR
-BGR_BG_PILL = (36, 28, 21)       # Dark slate background in BGR (#151C24)
-BGR_BG_MINT = (59, 78, 6)        # Deep emerald background in BGR (#064E3B)
-BGR_BG_ROSE = (25, 5, 76)        # Deep rose background in BGR (#4C0519)
+BGR_BG_PILL = (24, 16, 11)       # Dark glass tint in BGR (#0B1018)
+BGR_BG_MINT = (59, 78, 6)        # Deep emerald tint in BGR (#064E3B)
+BGR_BG_ROSE = (25, 5, 76)        # Deep rose tint in BGR (#4C0519)
 
 
 def draw_hud_pill(
@@ -123,11 +159,11 @@ def draw_hud_pill(
     bg: tuple[int, int, int] = BGR_BG_PILL,
     font_scale: float = 0.52,
 ) -> None:
-    """Draw a smooth semi-transparent pill badge with text for clean, soothing video telemetry."""
+    """Draw a frosted glass HUD badge with optical background blur and specular rim."""
     font = cv2.FONT_HERSHEY_DUPLEX
     thickness = 1
     (tw, th), bl = cv2.getTextSize(text, font, font_scale, thickness)
-    pad_x, pad_y = 10, 5
+    pad_x, pad_y = 12, 6
     fh, fw = frame.shape[:2]
 
     x1 = max(0, x)
@@ -135,11 +171,21 @@ def draw_hud_pill(
     x2 = min(fw, x1 + tw + pad_x * 2)
     y2 = min(fh, y + pad_y + 2)
 
-    if x2 - x1 > 4 and y2 - y1 > 4:
+    if x2 - x1 > 8 and y2 - y1 > 8:
         sub = frame[y1:y2, x1:x2]
-        rect = np.full_like(sub, bg)
-        cv2.addWeighted(rect, 0.84, sub, 0.16, 0, sub)
+        # 1. Optical Gaussian blur to simulate real frosted glass background
+        ksize = 15
+        blurred = cv2.GaussianBlur(sub, (ksize, ksize), 0)
+        # 2. Tint with dark glass tone
+        tint = np.full_like(sub, bg)
+        glass = cv2.addWeighted(blurred, 0.45, tint, 0.55, 0)
+        # 3. Alpha blend onto original frame
+        cv2.addWeighted(glass, 0.88, sub, 0.12, 0, sub)
+        # 4. Specular 1px luminous glass border
         cv2.rectangle(frame, (x1, y1), (x2, y2), fg, 1, cv2.LINE_AA)
+        # 5. Top-edge specular refraction line
+        if x2 - x1 > 8:
+            cv2.line(frame, (x1 + 2, y1), (x2 - 2, y1), (255, 255, 255), 1, cv2.LINE_AA)
 
     tx = min(fw - tw - 4, x1 + pad_x)
     ty = min(fh - 4, max(th + 2, y))
@@ -147,7 +193,7 @@ def draw_hud_pill(
 
 
 class ModernButton(tk.Button):
-    """Custom flat styled button with smooth, responsive hover and disabled states."""
+    """Custom glass-styled button with luminous hover feedback, specular rim, and disabled states."""
 
     def __init__(
         self,
@@ -155,11 +201,13 @@ class ModernButton(tk.Button):
         text: str,
         command=None,
         bg_color=COLOR_CYAN,
-        fg_color="#0B1320",
+        fg_color="#070B12",
         hover_color="#7DD3FC",
         hover_fg=None,
+        border_color=BORDER_COLOR,
+        hover_border=BORDER_ACTIVE,
         disabled_bg=BG_SURFACE_ALT,
-        disabled_fg="#94A3B8",
+        disabled_fg="#64748B",
         font=FONT_BODY_BOLD,
         state=tk.NORMAL,
         padx: int = 14,
@@ -170,6 +218,8 @@ class ModernButton(tk.Button):
         self.fg_color = fg_color
         self.hover_color = hover_color
         self.hover_fg = hover_fg if hover_fg is not None else fg_color
+        self.border_color = border_color
+        self.hover_border = hover_border
         self.disabled_bg = disabled_bg
         self.disabled_fg = disabled_fg
         self._is_hovered = False
@@ -190,7 +240,9 @@ class ModernButton(tk.Button):
             relief=tk.FLAT,
             overrelief=tk.FLAT,
             bd=0,
-            highlightthickness=0,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.hover_border,
             cursor="hand2" if state == tk.NORMAL else "arrow",
             padx=padx,
             pady=pady,
@@ -207,6 +259,7 @@ class ModernButton(tk.Button):
             self.configure(
                 bg=self.hover_color,
                 fg=self.hover_fg,
+                highlightbackground=self.hover_border,
                 cursor="hand2",
             )
 
@@ -216,6 +269,7 @@ class ModernButton(tk.Button):
             self.configure(
                 bg=self.bg_color,
                 fg=self.fg_color,
+                highlightbackground=self.border_color,
             )
 
     def set_text(self, text: str):
@@ -227,20 +281,27 @@ class ModernButton(tk.Button):
         fg_color: str,
         hover_color: str,
         hover_fg: str | None = None,
+        border_color: str | None = None,
+        hover_border: str | None = None,
     ):
         self.bg_color = bg_color
         self.fg_color = fg_color
         self.hover_color = hover_color
         self.hover_fg = hover_fg if hover_fg is not None else fg_color
+        if border_color is not None:
+            self.border_color = border_color
+        if hover_border is not None:
+            self.hover_border = hover_border
+
         self.configure(
             activebackground=hover_color,
             activeforeground=self.hover_fg,
         )
         if str(self["state"]) != tk.DISABLED:
             if self._is_hovered:
-                self.configure(bg=self.hover_color, fg=self.hover_fg)
+                self.configure(bg=self.hover_color, fg=self.hover_fg, highlightbackground=self.hover_border)
             else:
-                self.configure(bg=self.bg_color, fg=self.fg_color)
+                self.configure(bg=self.bg_color, fg=self.fg_color, highlightbackground=self.border_color)
 
     def set_state(self, state):
         self.configure(state=state)
@@ -248,18 +309,19 @@ class ModernButton(tk.Button):
             self.configure(
                 bg=self.disabled_bg,
                 disabledforeground=self.disabled_fg,
+                highlightbackground=self.border_color,
                 cursor="arrow",
             )
         else:
             self.configure(cursor="hand2")
             if self._is_hovered:
-                self.configure(bg=self.hover_color, fg=self.hover_fg)
+                self.configure(bg=self.hover_color, fg=self.hover_fg, highlightbackground=self.hover_border)
             else:
-                self.configure(bg=self.bg_color, fg=self.fg_color)
+                self.configure(bg=self.bg_color, fg=self.fg_color, highlightbackground=self.border_color)
 
 
 class MetricMeter(tk.Frame):
-    """Visual progress/score bar with label and value readout."""
+    """Visual glass progress/score bar with label, glowing track, and value readout."""
 
     def __init__(self, parent, title: str, max_val: float = 1.0, unit: str = "%"):
         super().__init__(parent, bg=BG_SURFACE)
@@ -276,7 +338,7 @@ class MetricMeter(tk.Frame):
         self.val_lbl.pack(side=tk.RIGHT)
 
         self.canvas_w = 320
-        self.canvas_h = 7
+        self.canvas_h = 8
         self.canvas = tk.Canvas(
             self,
             width=self.canvas_w,
@@ -314,14 +376,24 @@ class MetricMeter(tk.Frame):
         r = self.canvas_h // 2
         fill_w = int(ratio * self.canvas_w)
         self.canvas.delete("bar")
+        self.canvas.delete("bead")
         if fill_w >= r:
             self.canvas.create_line(
                 r, y, max(r, fill_w - r), y,
-                width=self.canvas_h,
+                width=self.canvas_h - 1,
                 capstyle=tk.ROUND,
                 fill=self._last_color,
                 tags="bar",
             )
+            # Specular glowing glass bead reflection at leading edge
+            tip_x = max(r, fill_w - r)
+            if tip_x > r + 3:
+                self.canvas.create_oval(
+                    tip_x - 2, y - 2, tip_x + 2, y + 2,
+                    fill="#FFFFFF",
+                    outline="",
+                    tags="bead",
+                )
 
     def set_value(self, val: float, display_text: str | None = None, color: str = COLOR_CYAN):
         self._last_val = val
@@ -376,6 +448,7 @@ def get_active_monitor_geometry(
     return None
 
 
+
 def center_window_on_monitor(root: tk.Tk | tk.Toplevel, width: int, height: int) -> None:
     """Center a window strictly within a single display, preventing multi-screen splits."""
     try:
@@ -408,6 +481,7 @@ class SettingsDialog(tk.Toplevel):
         self.title("FaceLock — Configuration & Security Settings")
         self.configure(bg=BG_APP)
         self.transient(parent)
+        apply_window_glass_effect(self, "FaceLock Settings")
 
         if LOGO_PATH.exists():
             try:
@@ -423,8 +497,15 @@ class SettingsDialog(tk.Toplevel):
         self.grab_set()
 
     def _build_ui(self):
+        # Specular glass border container
+        border_frame = tk.Frame(self, bg=BORDER_GLASS_LIGHT, padx=1, pady=1)
+        border_frame.pack(fill=tk.BOTH, expand=True)
+
+        main_box = tk.Frame(border_frame, bg=BG_APP)
+        main_box.pack(fill=tk.BOTH, expand=True)
+
         # Header bar
-        header_bar = tk.Frame(self, bg=BG_SURFACE, height=58, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        header_bar = tk.Frame(main_box, bg=BG_SURFACE, height=62, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         header_bar.pack(fill=tk.X, side=tk.TOP)
         header_bar.pack_propagate(False)
 
@@ -448,7 +529,7 @@ class SettingsDialog(tk.Toplevel):
         ).pack(anchor="w")
 
         # Bottom Action Bar (Fixed at bottom)
-        bottom_bar = tk.Frame(self, bg=BG_SURFACE, height=60, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        bottom_bar = tk.Frame(main_box, bg=BG_SURFACE, height=60, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         bottom_bar.pack(fill=tk.X, side=tk.BOTTOM)
         bottom_bar.pack_propagate(False)
 
@@ -459,9 +540,11 @@ class SettingsDialog(tk.Toplevel):
             b_inner,
             text="💾  Save & Apply",
             bg_color=COLOR_CYAN,
-            fg_color="#0B1320",
-            hover_color="#7DD3FC",
-            hover_fg="#0B1320",
+            fg_color="#070B12",
+            hover_color=COLOR_SKY_HOVER,
+            hover_fg="#070B12",
+            border_color=COLOR_CYAN_DIM,
+            hover_border=COLOR_CYAN_HOVER,
             padx=16,
             pady=6,
             command=self._save,
@@ -475,6 +558,8 @@ class SettingsDialog(tk.Toplevel):
             fg_color=TEXT_MAIN,
             hover_color=BG_SURFACE_HOVER,
             hover_fg="#FFFFFF",
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             padx=14,
             pady=6,
             command=self.destroy,
@@ -482,8 +567,8 @@ class SettingsDialog(tk.Toplevel):
         self.btn_cancel.pack(side=tk.RIGHT)
 
         # Scrollable Content Area
-        canvas = tk.Canvas(self, bg=BG_APP, highlightthickness=0)
-        scrollbar = tk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+        canvas = tk.Canvas(main_box, bg=BG_APP, highlightthickness=0)
+        scrollbar = tk.Scrollbar(main_box, orient=tk.VERTICAL, command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg=BG_APP, padx=16, pady=12)
 
         scrollable_frame.bind(
@@ -533,9 +618,9 @@ class SettingsDialog(tk.Toplevel):
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
             padx=14,
-            pady=10,
+            pady=12,
             highlightthickness=1,
-            highlightbackground=BORDER_COLOR,
+            highlightbackground=BORDER_GLASS_LIGHT,
         )
         card_idle.pack(fill=tk.X, pady=(0, 14))
 
@@ -616,9 +701,9 @@ class SettingsDialog(tk.Toplevel):
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
             padx=14,
-            pady=10,
+            pady=12,
             highlightthickness=1,
-            highlightbackground=BORDER_COLOR,
+            highlightbackground=BORDER_GLASS_LIGHT,
         )
         card_bio.pack(fill=tk.X, pady=(0, 14))
 
@@ -754,9 +839,9 @@ class SettingsDialog(tk.Toplevel):
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
             padx=14,
-            pady=10,
+            pady=12,
             highlightthickness=1,
-            highlightbackground=BORDER_COLOR,
+            highlightbackground=BORDER_GLASS_LIGHT,
         )
         card_dev.pack(fill=tk.X, pady=(0, 10))
 
@@ -786,7 +871,9 @@ class SettingsDialog(tk.Toplevel):
                 bg_color=BG_SURFACE_ALT,
                 fg_color=COLOR_CYAN,
                 hover_color=BG_SURFACE_HOVER,
-                hover_fg="#7DD3FC",
+                hover_fg=COLOR_SKY_HOVER,
+                border_color=BORDER_COLOR,
+                hover_border=BORDER_ACTIVE,
                 padx=6,
                 pady=2,
                 command=lambda v=p_val, tv=text_var: tv.set(str(v)),
@@ -806,7 +893,7 @@ class SettingsDialog(tk.Toplevel):
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=BORDER_COLOR,
-            highlightcolor=COLOR_CYAN,
+            highlightcolor=BORDER_ACTIVE,
             width=6,
             justify=tk.CENTER,
         )
@@ -881,6 +968,7 @@ class SplashScreen:
         self.root.title("FaceLock Loading")
         self.root.overrideredirect(True)
         self.root.configure(bg=BG_APP)
+        apply_window_glass_effect(self.root, "FaceLock Loading")
 
         if LOGO_PATH.exists():
             try:
@@ -892,26 +980,26 @@ class SplashScreen:
         width, height = 605, 430
         center_window_on_monitor(self.root, width, height)
 
-        # Card container with glowing cyan accent border
-        border_frame = tk.Frame(self.root, bg=BORDER_COLOR, padx=1, pady=1)
+        # Glass modal container with glowing specular glass border
+        border_frame = tk.Frame(self.root, bg=BORDER_GLASS_LIGHT, padx=1, pady=1)
         border_frame.pack(fill=tk.BOTH, expand=True)
 
-        main_card = tk.Frame(border_frame, bg=BG_APP)
+        main_card = tk.Frame(border_frame, bg=BG_SURFACE)
         main_card.pack(fill=tk.BOTH, expand=True)
 
         self.banner_img = None
         if SPLASH_BANNER_PATH.exists():
             try:
                 self.banner_img = tk.PhotoImage(file=str(SPLASH_BANNER_PATH))
-                banner_lbl = tk.Label(main_card, image=self.banner_img, bg=BG_APP, borderwidth=0)
+                banner_lbl = tk.Label(main_card, image=self.banner_img, bg=BG_SURFACE, borderwidth=0)
                 banner_lbl.pack(fill=tk.X)
             except Exception as e:
                 logger.warning("Could not load splash banner: %s", e)
 
-        info_box = tk.Frame(main_card, bg=BG_APP, padx=24, pady=14)
+        info_box = tk.Frame(main_card, bg=BG_SURFACE, padx=24, pady=14)
         info_box.pack(fill=tk.BOTH, expand=True)
 
-        top_row = tk.Frame(info_box, bg=BG_APP)
+        top_row = tk.Frame(info_box, bg=BG_SURFACE)
         top_row.pack(fill=tk.X)
 
         tk.Label(
@@ -919,7 +1007,7 @@ class SplashScreen:
             text="FACELOCK BIOMETRICS",
             font=FONT_TITLE,
             fg=COLOR_CYAN,
-            bg=BG_APP,
+            bg=BG_SURFACE,
         ).pack(side=tk.LEFT)
 
         self.percent_lbl = tk.Label(
@@ -927,7 +1015,7 @@ class SplashScreen:
             text="0%",
             font=FONT_TITLE,
             fg=COLOR_CYAN,
-            bg=BG_APP,
+            bg=BG_SURFACE,
         )
         self.percent_lbl.pack(side=tk.RIGHT)
 
@@ -936,7 +1024,7 @@ class SplashScreen:
             text="Initializing biometric subsystem...",
             font=FONT_BODY,
             fg=TEXT_MUTED,
-            bg=BG_APP,
+            bg=BG_SURFACE,
         )
         self.status_lbl.pack(anchor="w", pady=(2, 10))
 
@@ -947,7 +1035,7 @@ class SplashScreen:
             info_box,
             width=self.canvas_w,
             height=self.canvas_h,
-            bg=BG_APP,
+            bg=BG_SURFACE,
             highlightthickness=0,
         )
         self.progress_canvas.pack(fill=tk.X)
@@ -974,14 +1062,23 @@ class SplashScreen:
         y = self.canvas_h // 2
         r = self.canvas_h // 2
         self.progress_canvas.delete("bar")
+        self.progress_canvas.delete("bead")
         if fill_w >= r:
             self.progress_canvas.create_line(
                 r, y, max(r, fill_w - r), y,
-                width=self.canvas_h,
+                width=self.canvas_h - 1,
                 capstyle=tk.ROUND,
                 fill=COLOR_CYAN,
                 tags="bar",
             )
+            tip_x = max(r, fill_w - r)
+            if tip_x > r + 3:
+                self.progress_canvas.create_oval(
+                    tip_x - 2, y - 2, tip_x + 2, y + 2,
+                    fill="#FFFFFF",
+                    outline="",
+                    tags="bead",
+                )
         self.root.update_idletasks()
 
     def _run_init_steps(self):
@@ -1054,6 +1151,7 @@ class FaceSetupGUI:
         self.root.configure(bg=BG_APP)
         self.root.minsize(1120, 740)
         center_window_on_monitor(self.root, 1280, 860)
+        apply_window_glass_effect(self.root, "FaceLock — Biometric Face Setup")
 
         if LOGO_PATH.exists():
             try:
@@ -1092,8 +1190,8 @@ class FaceSetupGUI:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self):
-        # 1. Navigation Top Header
-        top_bar = tk.Frame(self.root, bg=BG_SURFACE, height=68, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # 1. Navigation Top Header (Frosted Glass Header)
+        top_bar = tk.Frame(self.root, bg=BG_SURFACE, height=68, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         top_bar.pack(fill=tk.X, side=tk.TOP)
         top_bar.pack_propagate(False)
 
@@ -1152,6 +1250,8 @@ class FaceSetupGUI:
             fg_color=COLOR_CYAN,
             hover_color=BG_SURFACE_HOVER,
             hover_fg="#7DD3FC",
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             padx=10,
             pady=4,
             command=self._launch_calibration,
@@ -1166,6 +1266,8 @@ class FaceSetupGUI:
             fg_color=COLOR_CYAN,
             hover_color=BG_SURFACE_HOVER,
             hover_fg="#7DD3FC",
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             padx=10,
             pady=4,
             command=self._open_settings_dialog,
@@ -1173,7 +1275,9 @@ class FaceSetupGUI:
         self.btn_top_settings.pack(side=tk.LEFT, padx=6)
 
         # Service Status Badge & Control
-        self.service_badge = tk.Frame(right_pills, bg=BG_SURFACE_ALT, padx=10, pady=4)
+        self.service_badge = tk.Frame(
+            right_pills, bg=BG_SURFACE_ALT, padx=10, pady=4, highlightthickness=1, highlightbackground=BORDER_COLOR
+        )
         self.service_badge.pack(side=tk.LEFT, padx=4)
         self.service_status_lbl = tk.Label(
             self.service_badge,
@@ -1191,18 +1295,22 @@ class FaceSetupGUI:
             fg_color="#FECDD3",
             hover_color="#881337",
             hover_fg="#FFFFFF",
+            border_color=COLOR_ROSE_BORDER,
+            hover_border=COLOR_ROSE,
             padx=10,
             pady=4,
             command=self._toggle_daemon,
         )
         self.btn_toggle_daemon.pack(side=tk.LEFT, padx=4)
 
-        # Profile Status Badge
+        # Profile Status Badge with glass border
         self.profile_badge = tk.Frame(
             right_pills,
             bg=COLOR_EMERALD_BG if self.known_embeddings is not None else COLOR_ROSE_BG,
             padx=12,
             pady=4,
+            highlightthickness=1,
+            highlightbackground=COLOR_EMERALD_BORDER if self.known_embeddings is not None else COLOR_ROSE_BORDER,
         )
         self.profile_badge.pack(side=tk.LEFT, padx=6)
         self.profile_status_lbl = tk.Label(
@@ -1218,8 +1326,8 @@ class FaceSetupGUI:
         main_area = tk.Frame(self.root, bg=BG_APP)
         main_area.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
 
-        # Left Column: Video Viewport Card
-        left_card = tk.Frame(main_area, bg=BG_SURFACE, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Left Column: Video Viewport Card (Frosted Glass Panel)
+        left_card = tk.Frame(main_area, bg=BG_SURFACE, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         left_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
 
         viewport_bar = tk.Frame(left_card, bg=BG_SURFACE, padx=14, pady=10)
@@ -1242,18 +1350,18 @@ class FaceSetupGUI:
         )
         self.fps_lbl.pack(side=tk.RIGHT)
 
-        self.canvas = tk.Canvas(left_card, bg="#080C14", highlightthickness=0)
+        self.canvas = tk.Canvas(left_card, bg="#04070F", highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
-        # Right Column: Setup & Biometrics Control Studio
-        right_card = tk.Frame(main_area, bg=BG_SURFACE, width=420, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Right Column: Setup & Biometrics Control Studio (Frosted Glass)
+        right_card = tk.Frame(main_area, bg=BG_SURFACE, width=420, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT)
         right_card.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
         right_card.pack_propagate(False)
 
         right_content = tk.Frame(right_card, bg=BG_SURFACE, padx=16, pady=16)
         right_content.pack(fill=tk.BOTH, expand=True)
 
-        # Stepper Row (dynamic visual pills)
+        # Stepper Row (dynamic visual glass capsules)
         tk.Label(right_content, text="BIOMETRIC ANGLE ENROLLMENT", font=FONT_SECTION, fg=COLOR_CYAN, bg=BG_SURFACE).pack(anchor="w")
 
         self.stepper_frame = tk.Frame(right_content, bg=BG_SURFACE, pady=8)
@@ -1268,12 +1376,16 @@ class FaceSetupGUI:
                 bg=BG_SURFACE_ALT,
                 fg=TEXT_MUTED,
                 pady=4,
+                highlightthickness=1,
+                highlightbackground=BORDER_COLOR,
             )
             pill.pack(side=tk.LEFT, expand=True, padx=2)
             self.step_pills.append(pill)
 
-        # Active Guidance Card
-        self.guide_card = tk.Frame(right_content, bg=BG_SURFACE_ALT, padx=14, pady=12, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Active Guidance Card (Elevated Glass Well)
+        self.guide_card = tk.Frame(
+            right_content, bg=BG_SURFACE_ALT, padx=14, pady=12, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT
+        )
         self.guide_card.pack(fill=tk.X, pady=(4, 14))
 
         self.step_tag_lbl = tk.Label(
@@ -1305,7 +1417,7 @@ class FaceSetupGUI:
         )
         self.step_desc_lbl.pack(anchor="w")
 
-        # Telemetry Gauges
+        # Telemetry Gauges (Glass Card)
         telemetry_box = tk.LabelFrame(
             right_content,
             text=" Live Biometric Telemetry ",
@@ -1315,7 +1427,7 @@ class FaceSetupGUI:
             padx=12,
             pady=10,
             highlightthickness=1,
-            highlightbackground=BORDER_COLOR,
+            highlightbackground=BORDER_GLASS_LIGHT,
         )
         telemetry_box.pack(fill=tk.X, pady=(0, 14))
 
@@ -1338,15 +1450,17 @@ class FaceSetupGUI:
             padx=10,
             pady=8,
             highlightthickness=1,
-            highlightbackground=BORDER_COLOR,
+            highlightbackground=BORDER_GLASS_LIGHT,
         )
         self.profiles_box.pack(fill=tk.X, pady=(0, 12))
 
         self.profiles_list_frame = tk.Frame(self.profiles_box, bg=BG_SURFACE)
         self.profiles_list_frame.pack(fill=tk.X)
 
-        # Service & Daemon Control Card
-        service_box = tk.Frame(right_content, bg=BG_SURFACE_ALT, padx=12, pady=10, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        # Service & Daemon Control Card (Elevated Glass)
+        service_box = tk.Frame(
+            right_content, bg=BG_SURFACE_ALT, padx=12, pady=10, highlightthickness=1, highlightbackground=BORDER_GLASS_LIGHT
+        )
         service_box.pack(fill=tk.X, pady=(0, 14))
 
         s_top = tk.Frame(service_box, bg=BG_SURFACE_ALT)
@@ -1357,10 +1471,12 @@ class FaceSetupGUI:
             s_top,
             text="Restart Daemon",
             font=FONT_CAPTION,
-            bg_color="#222D3E",
+            bg_color=BG_SURFACE_ALT,
             fg_color=TEXT_MAIN,
-            hover_color="#334155",
+            hover_color=BG_SURFACE_HOVER,
             hover_fg="#FFFFFF",
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             padx=8,
             pady=3,
             command=self._restart_daemon,
@@ -1410,7 +1526,7 @@ class FaceSetupGUI:
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=BORDER_COLOR,
-            highlightcolor=COLOR_CYAN,
+            highlightcolor=BORDER_ACTIVE,
         )
         self.name_entry.pack(fill=tk.X, ipady=4, pady=(3, 0))
 
@@ -1418,9 +1534,11 @@ class FaceSetupGUI:
             btn_area,
             text="▶  Start Face Enrollment",
             bg_color=COLOR_CYAN,
-            fg_color="#0B1320",
+            fg_color="#070B12",
             hover_color="#7DD3FC",
-            hover_fg="#0B1320",
+            hover_fg="#070B12",
+            border_color=COLOR_CYAN_DIM,
+            hover_border=COLOR_CYAN_HOVER,
             command=self._toggle_enrollment,
         )
         self.btn_enroll.pack(fill=tk.X, pady=(0, 8))
@@ -1435,6 +1553,8 @@ class FaceSetupGUI:
             fg_color=TEXT_MAIN,
             hover_color=BG_SURFACE_HOVER,
             hover_fg="#FFFFFF",
+            border_color=BORDER_COLOR,
+            hover_border=BORDER_ACTIVE,
             command=self._toggle_testing,
         )
         self.btn_test.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
@@ -1443,11 +1563,13 @@ class FaceSetupGUI:
             row2,
             text="💾  Save Profile",
             bg_color=COLOR_EMERALD,
-            fg_color="#0B1320",
+            fg_color="#070B12",
             hover_color="#6EE7B7",
-            hover_fg="#0B1320",
+            hover_fg="#070B12",
+            border_color=COLOR_EMERALD_BORDER,
+            hover_border=COLOR_EMERALD,
             disabled_bg=BG_SURFACE_ALT,
-            disabled_fg="#94A3B8",
+            disabled_fg="#64748B",
             state=tk.DISABLED,
             command=self._save_profile,
         )
@@ -1472,15 +1594,21 @@ class FaceSetupGUI:
                 fg=TEXT_MUTED,
                 bg=BG_SURFACE,
             ).pack(anchor="w", pady=4)
-            self.profile_badge.configure(bg=COLOR_ROSE_BG)
+            self.profile_badge.configure(bg=COLOR_ROSE_BG, highlightbackground=COLOR_ROSE_BORDER)
             self.profile_status_lbl.configure(
                 text=f"✕ NO PROFILE (0/{profiles.MAX_PROFILES})",
                 fg=COLOR_ROSE,
                 bg=COLOR_ROSE_BG,
             )
         else:
+            self.profile_badge.configure(bg=COLOR_EMERALD_BG, highlightbackground=COLOR_EMERALD_BORDER)
+            self.profile_status_lbl.configure(
+                text=f"✓ ENROLLED ({count}/{profiles.MAX_PROFILES})",
+                fg=COLOR_EMERALD,
+                bg=COLOR_EMERALD_BG,
+            )
             for name, arr in profile_dict.items():
-                row = tk.Frame(self.profiles_list_frame, bg=BG_SURFACE_ALT, padx=8, pady=4)
+                row = tk.Frame(self.profiles_list_frame, bg=BG_SURFACE_ALT, padx=8, pady=4, highlightthickness=1, highlightbackground=BORDER_COLOR)
                 row.pack(fill=tk.X, pady=2)
 
                 tk.Label(
@@ -1499,9 +1627,11 @@ class FaceSetupGUI:
                     fg_color="#FECDD3",
                     hover_color="#881337",
                     hover_fg="#FFFFFF",
-                    padx=8,
+                    border_color=COLOR_ROSE_BORDER,
+                    hover_border=COLOR_ROSE,
+                    padx=6,
                     pady=2,
-                    command=lambda n=name: self._delete_profile_action(n),
+                    command=lambda n=name: self._delete_profile(n),
                 )
                 del_btn.pack(side=tk.RIGHT)
 
@@ -1512,7 +1642,7 @@ class FaceSetupGUI:
                 bg=COLOR_EMERALD_BG,
             )
 
-    def _delete_profile_action(self, name: str):
+    def _delete_profile(self, name: str):
         """Confirm and delete a specific named profile."""
         if messagebox.askyesno(
             "Delete Face Profile",
@@ -1524,11 +1654,15 @@ class FaceSetupGUI:
             self._refresh_profiles_ui()
             messagebox.showinfo("Profile Deleted", f"Profile '{name}' has been successfully removed.")
 
+    _delete_profile_action = _delete_profile
+
     def _toggle_enrollment(self):
         if self.is_enrolling:
             self.is_enrolling = False
             self.btn_enroll.set_text("▶  Resume Enrollment")
-            self.btn_enroll.set_colors(COLOR_CYAN, "#0B1320", "#7DD3FC")
+            self.btn_enroll.set_colors(
+                COLOR_CYAN, "#070B12", COLOR_CYAN_HOVER, "#070B12", border_color=COLOR_CYAN_DIM, hover_border=COLOR_CYAN_HOVER
+            )
         else:
             if profiles.get_profile_count() >= profiles.MAX_PROFILES:
                 names_str = ", ".join(f"'{n}'" for n in profiles.get_profile_names())
@@ -1552,7 +1686,9 @@ class FaceSetupGUI:
             self.blink_steady_count = 0
             self.is_enrolling = True
             self.btn_enroll.set_text("⏸  Pause Enrollment")
-            self.btn_enroll.set_colors(COLOR_AMBER, "#0B1320", "#FDE68A")
+            self.btn_enroll.set_colors(
+                COLOR_AMBER, "#070B12", COLOR_AMBER_TEXT, "#070B12", border_color=COLOR_AMBER_BORDER, hover_border=COLOR_AMBER
+            )
             self.pose_hold_count = 0
             self.cooldown_until = 0.0
             self._update_progress()
@@ -1570,7 +1706,9 @@ class FaceSetupGUI:
                 return
             self.is_enrolling = False
             self.btn_enroll.set_text("▶  Start Face Enrollment")
-            self.btn_enroll.set_colors(COLOR_CYAN, "#0B1320", "#7DD3FC")
+            self.btn_enroll.set_colors(
+                COLOR_CYAN, "#070B12", "#7DD3FC", "#070B12", border_color=COLOR_CYAN_DIM, hover_border=COLOR_CYAN_HOVER
+            )
             self.is_testing = True
             self.test_challenge_blinks = 0
             self.liveness_tracker.blink_detector.reset()
@@ -1610,11 +1748,26 @@ class FaceSetupGUI:
 
         for i, pill in enumerate(self.step_pills):
             if i < count:
-                pill.configure(text="✓", bg=COLOR_EMERALD, fg="#0B1320")
+                pill.configure(
+                    text="✓",
+                    bg=COLOR_EMERALD_BG,
+                    fg=COLOR_EMERALD_TEXT,
+                    highlightbackground=COLOR_EMERALD_BORDER,
+                )
             elif i == count:
-                pill.configure(text=str(i + 1), bg=COLOR_CYAN, fg="#0B1320")
+                pill.configure(
+                    text=str(i + 1),
+                    bg=COLOR_CYAN,
+                    fg="#070B12",
+                    highlightbackground=COLOR_CYAN_HOVER,
+                )
             else:
-                pill.configure(text=str(i + 1), bg=BG_SURFACE_ALT, fg=TEXT_MUTED)
+                pill.configure(
+                    text=str(i + 1),
+                    bg=BG_SURFACE_ALT,
+                    fg=TEXT_MUTED,
+                    highlightbackground=BORDER_COLOR,
+                )
 
         if count < total:
             prompt_title, prompt_desc, target_dir, _ = self.POSE_PROMPTS[count % len(self.POSE_PROMPTS)]
@@ -1630,7 +1783,9 @@ class FaceSetupGUI:
             )
             self.is_enrolling = False
             self.btn_enroll.set_text("🔄  Re-Enroll Face")
-            self.btn_enroll.set_colors(COLOR_CYAN, "#0B1320", "#7DD3FC")
+            self.btn_enroll.set_colors(
+                COLOR_CYAN, "#070B12", "#7DD3FC", "#070B12", border_color=COLOR_CYAN_DIM, hover_border=COLOR_CYAN_HOVER
+            )
             self.btn_save.set_state(tk.NORMAL)
 
     def _save_profile(self):
@@ -1739,19 +1894,33 @@ class FaceSetupGUI:
             def apply():
                 self.daemon_active = active
                 if active:
-                    self.service_badge.configure(bg=COLOR_EMERALD_BG)
+                    self.service_badge.configure(bg=COLOR_EMERALD_BG, highlightbackground=COLOR_EMERALD_BORDER)
                     self.service_status_lbl.configure(
                         text="● DAEMON: ACTIVE", fg=COLOR_EMERALD, bg=COLOR_EMERALD_BG
                     )
                     self.btn_toggle_daemon.set_text("⏹  Stop Daemon")
-                    self.btn_toggle_daemon.set_colors("#4C0519", "#FECDD3", "#881337", "#FFFFFF")
+                    self.btn_toggle_daemon.set_colors(
+                        "#4C0519",
+                        "#FECDD3",
+                        "#881337",
+                        "#FFFFFF",
+                        border_color=COLOR_ROSE_BORDER,
+                        hover_border=COLOR_ROSE,
+                    )
                 else:
-                    self.service_badge.configure(bg=BG_SURFACE_ALT)
+                    self.service_badge.configure(bg=BG_SURFACE_ALT, highlightbackground=BORDER_COLOR)
                     self.service_status_lbl.configure(
                         text="○ DAEMON: STOPPED", fg=TEXT_MUTED, bg=BG_SURFACE_ALT
                     )
                     self.btn_toggle_daemon.set_text("▶  Start Daemon")
-                    self.btn_toggle_daemon.set_colors(COLOR_EMERALD_BG, COLOR_EMERALD, "#047857", "#A7F3D0")
+                    self.btn_toggle_daemon.set_colors(
+                        COLOR_EMERALD_BG,
+                        COLOR_EMERALD_TEXT,
+                        "#047857",
+                        "#A7F3D0",
+                        border_color=COLOR_EMERALD_BORDER,
+                        hover_border=COLOR_EMERALD,
+                    )
 
             self.root.after(0, apply)
 
@@ -1798,6 +1967,7 @@ class FaceSetupGUI:
                 self.root.after(0, self._update_daemon_status)
 
         threading.Thread(target=do_restart, daemon=True).start()
+
 
     def _video_loop(self):
         if not self.is_running:
@@ -1905,9 +2075,15 @@ class FaceSetupGUI:
                 else:
                     color = BGR_SKY if (is_live and live_tex) else BGR_CORAL
 
-                # Sleek, soothing corner reticle
+                # Sleek glass corner reticle with subtle boundary
                 cr = int(min(bw, bh) * 0.18)
                 t = 2
+
+                # Subtle glass boundary box (dim translucent tone)
+                dim_color = (int(color[0] * 0.30), int(color[1] * 0.30), int(color[2] * 0.30))
+                cv2.rectangle(frame, (x, y_box), (x + bw, y_box + bh), dim_color, 1, cv2.LINE_AA)
+
+                # Glowing corner brackets
                 cv2.line(frame, (x, y_box), (x + cr, y_box), color, t, cv2.LINE_AA)
                 cv2.line(frame, (x, y_box), (x, y_box + cr), color, t, cv2.LINE_AA)
                 cv2.line(frame, (x + bw, y_box), (x + bw - cr, y_box), color, t, cv2.LINE_AA)
@@ -1917,14 +2093,16 @@ class FaceSetupGUI:
                 cv2.line(frame, (x + bw, y_box + bh), (x + bw - cr, y_box + bh), color, t, cv2.LINE_AA)
                 cv2.line(frame, (x + bw, y_box + bh), (x + bw, y_box + bh - cr), color, t, cv2.LINE_AA)
 
-                # Subtle biometric landmark accents (clean, gentle glowing dots)
+                # Subtle biometric landmark accents (glowing outer ring with white center)
                 for i in range(5):
                     lx, ly = int(landmarks[i * 2]), int(landmarks[i * 2 + 1])
                     if i < 2 and blink_state.is_blinking:
-                        cv2.circle(frame, (lx, ly), 5, BGR_MINT, 1, cv2.LINE_AA)
-                        cv2.circle(frame, (lx, ly), 2, BGR_MINT, -1, cv2.LINE_AA)
+                        cv2.circle(frame, (lx, ly), 6, BGR_MINT, 1, cv2.LINE_AA)
+                        cv2.circle(frame, (lx, ly), 3, BGR_MINT, -1, cv2.LINE_AA)
+                        cv2.circle(frame, (lx, ly), 1, (255, 255, 255), -1, cv2.LINE_AA)
                     else:
-                        cv2.circle(frame, (lx, ly), 2, color, -1, cv2.LINE_AA)
+                        cv2.circle(frame, (lx, ly), 4, color, 1, cv2.LINE_AA)
+                        cv2.circle(frame, (lx, ly), 2, (255, 255, 255), -1, cv2.LINE_AA)
 
                 # Pose HUD pill in top-left of video
                 if pose is not None:

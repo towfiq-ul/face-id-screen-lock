@@ -3,6 +3,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
+from facelock.platform import get_backend
 from facelock.platform.base import Backend
 from facelock.platform.linux import LinuxBackend
 
@@ -70,5 +71,12 @@ class TestPlatformLinux(unittest.TestCase):
         self.assertEqual(idle, 12.5)
 
 
+class TestGetBackend(unittest.TestCase):
+    def test_get_backend_linux(self):
+        backend = get_backend()
+        self.assertIsInstance(backend, LinuxBackend)
+
+
 if __name__ == "__main__":
     unittest.main()
+

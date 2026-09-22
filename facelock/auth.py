@@ -168,7 +168,8 @@ def authenticate(
     frames_seen = 0
     faces_seen = 0
     low_light_frames = 0
-    highest_match_score = 0.0
+    highest_match_percent = 0.0
+    best_match_percent = 0.0
     last_rejection_reason = "No face detected"
 
     try:
@@ -179,6 +180,7 @@ def authenticate(
                 continue
 
             frames_seen += 1
+
             if frame.ndim == 3:
                 mean_lum = float(np.mean(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)))
             else:
@@ -189,7 +191,7 @@ def authenticate(
 
             face = engine.best_face(frame)
             if face is None:
-                last_rejection_reason = f"No face detected (lum={mean_lum:.1f})"
+                last_rejection_reason = f"No face located in frame (lum={mean_lum:.1f})"
                 time.sleep(0.03)
                 continue
 
@@ -211,18 +213,24 @@ def authenticate(
             # Compare against enrolled profiles
             for name, known_vecs in user_profiles.items():
                 res = engine.match_detailed(emb, known_vecs, landmarks=landmarks)
-                if res.fused_score > highest_match_score:
-                    highest_match_score = res.fused_score
+                res_pct = getattr(res, "match_percent", None)
+                if not isinstance(res_pct, (int, float)):
+                    fused = getattr(res, "fused_score", 0.0)
+                    res_pct = float(fused) * 100.0 if isinstance(fused, (int, float)) else 0.0
+
+                if res_pct > highest_match_percent:
+                    highest_match_percent = float(res_pct)
 
                 if res.matched:
                     matched_name = name
-                    best_score = res.fused_score
+                    best_match_percent = float(res_pct)
                     break
 
             if matched_name is not None:
                 break
 
-            last_rejection_reason = f"Score {highest_match_score:.2f} < threshold {config.match_threshold}"
+            min_pct = getattr(config, "min_match_percent", 92.0)
+            last_rejection_reason = f"Match {highest_match_percent:.1f}% < threshold {min_pct:.0f}%"
             time.sleep(0.02)
 
     finally:
@@ -232,10 +240,10 @@ def authenticate(
 
     if matched_name is not None:
         logger.info(
-            "✓ Verified '%s' as enrolled profile '%s' (score=%.2f in %.2fs, frames=%d, low_light=%d)",
+            "✓ Verified '%s' as enrolled profile '%s' (match=%.1f%% in %.2fs, frames=%d, low_light=%d)",
             user,
             matched_name,
-            best_score,
+            best_match_percent,
             elapsed,
             frames_seen,
             low_light_frames,

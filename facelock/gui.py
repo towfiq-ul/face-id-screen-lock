@@ -243,6 +243,481 @@ def center_window_on_monitor(root: tk.Tk | tk.Toplevel, width: int, height: int)
     root.geometry(f"{width}x{height}+{x}+{y}")
 
 
+class SettingsDialog(tk.Toplevel):
+    """Modern Dark Cyberpunk FaceLock Security & Auto-Lock Configuration Dialog."""
+
+    def __init__(self, parent: tk.Tk | tk.Toplevel, config: cfg.Config, on_save_callback=None):
+        super().__init__(parent)
+        self.config = config
+        self.on_save_callback = on_save_callback
+
+        self.title("FaceLock Configuration & Security Settings")
+        self.configure(bg=BG_APP)
+        self.transient(parent)
+
+        if LOGO_PATH.exists():
+            try:
+                self.icon_img = tk.PhotoImage(file=str(LOGO_PATH), master=self)
+                self.iconphoto(True, self.icon_img)
+            except Exception:
+                pass
+
+        dialog_w, dialog_h = 600, 680
+        center_window_on_monitor(self, dialog_w, dialog_h)
+
+        self._build_ui()
+        self.grab_set()
+
+    def _build_ui(self):
+        # Header bar
+        header_bar = tk.Frame(self, bg=BG_SURFACE, height=56, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        header_bar.pack(fill=tk.X, side=tk.TOP)
+        header_bar.pack_propagate(False)
+
+        h_inner = tk.Frame(header_bar, bg=BG_SURFACE, padx=16, pady=8)
+        h_inner.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            h_inner,
+            text="⚙️  SECURITY & AUTO-LOCK CONFIGURATION",
+            font=FONT_TITLE,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
+        ).pack(anchor="w")
+
+        tk.Label(
+            h_inner,
+            text="Tune user inactivity triggers, verification windows, and biometric sensitivity.",
+            font=FONT_SUBTITLE,
+            fg=TEXT_MUTED,
+            bg=BG_SURFACE,
+        ).pack(anchor="w")
+
+        # Bottom Action Bar (Fixed at bottom)
+        bottom_bar = tk.Frame(self, bg=BG_SURFACE, height=60, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        bottom_bar.pack(fill=tk.X, side=tk.BOTTOM)
+        bottom_bar.pack_propagate(False)
+
+        b_inner = tk.Frame(bottom_bar, bg=BG_SURFACE, padx=16, pady=10)
+        b_inner.pack(fill=tk.BOTH, expand=True)
+
+        self.btn_save = ModernButton(
+            b_inner,
+            text="💾  Save & Apply",
+            bg_color=COLOR_CYAN,
+            fg_color="#000000",
+            hover_color="#38F4FF",
+            padx=16,
+            pady=6,
+            command=self._save,
+        )
+        self.btn_save.pack(side=tk.RIGHT, padx=(8, 0))
+
+        self.btn_cancel = ModernButton(
+            b_inner,
+            text="Cancel",
+            bg_color=BG_SURFACE_ALT,
+            fg_color=TEXT_MAIN,
+            hover_color="#243452",
+            padx=14,
+            pady=6,
+            command=self.destroy,
+        )
+        self.btn_cancel.pack(side=tk.RIGHT)
+
+        # Scrollable Content Area
+        canvas = tk.Canvas(self, bg=BG_APP, highlightthickness=0)
+        scrollbar = tk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=BG_APP, padx=16, pady=12)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        def _on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        canvas.bind("<Configure>", _on_canvas_configure)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def _on_mousewheel(event):
+            if event.num == 4:
+                canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(1, "units")
+            elif hasattr(event, "delta") and event.delta:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind_all("<Button-4>", _on_mousewheel)
+        canvas.bind_all("<Button-5>", _on_mousewheel)
+
+        def _cleanup():
+            try:
+                canvas.unbind_all("<MouseWheel>")
+                canvas.unbind_all("<Button-4>")
+                canvas.unbind_all("<Button-5>")
+            except Exception:
+                pass
+            self.destroy()
+
+        self.protocol("WM_DELETE_WINDOW", _cleanup)
+        self.btn_cancel.configure(command=_cleanup)
+
+        # SECTION 1: Auto-Lock & Inactivity Triggers Card
+        card_idle = tk.LabelFrame(
+            scrollable_frame,
+            text=" Inactivity & Auto-Lock Timing ",
+            font=FONT_SECTION,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
+            padx=14,
+            pady=10,
+            highlightthickness=1,
+            highlightbackground=BORDER_COLOR,
+        )
+        card_idle.pack(fill=tk.X, pady=(0, 14))
+
+        # Checkbox: Smart Idle Detection
+        self.var_idle_enabled = tk.BooleanVar(value=getattr(self.config, "idle_detection_enabled", True))
+        chk_idle = tk.Checkbutton(
+            card_idle,
+            text="Enable Smart Input Inactivity Detection",
+            variable=self.var_idle_enabled,
+            font=FONT_BODY_BOLD,
+            fg=TEXT_MAIN,
+            bg=BG_SURFACE,
+            selectcolor=BG_SURFACE_ALT,
+            activebackground=BG_SURFACE,
+            activeforeground=COLOR_CYAN,
+        )
+        chk_idle.pack(anchor="w")
+
+        tk.Label(
+            card_idle,
+            text="Monitors keyboard, mouse, touch pad and touch screen. Optical camera wakes only after zero activity.",
+            font=FONT_SUBTITLE,
+            fg=TEXT_MUTED,
+            bg=BG_SURFACE,
+            wraplength=520,
+            justify=tk.LEFT,
+        ).pack(anchor="w", pady=(0, 10))
+
+        # 1. Idle timeout
+        self.var_idle_timeout = tk.StringVar(value=str(int(getattr(self.config, "idle_timeout_seconds", 120.0))))
+        self._build_numeric_row(
+            parent=card_idle,
+            label_text="User Inactivity Trigger:",
+            text_var=self.var_idle_timeout,
+            unit="sec",
+            presets=[("1m", 60), ("2m", 120), ("5m", 300), ("10m", 600)],
+            hint="Seconds of zero input before camera wakes up to check face.",
+        )
+
+        # 2. Face check window
+        self.var_face_window = tk.StringVar(value=str(int(getattr(self.config, "face_check_window_seconds", 30.0))))
+        self._build_numeric_row(
+            parent=card_idle,
+            label_text="Face Verification Window:",
+            text_var=self.var_face_window,
+            unit="sec",
+            presets=[("15s", 15), ("30s", 30), ("45s", 45), ("60s", 60)],
+            hint="Seconds camera searches for enrolled face before locking screen.",
+        )
+
+        # 3. Check polling interval
+        self.var_check_interval = tk.StringVar(value=str(getattr(self.config, "check_interval_seconds", 2.0)))
+        self._build_numeric_row(
+            parent=card_idle,
+            label_text="Camera Polling Interval:",
+            text_var=self.var_check_interval,
+            unit="sec",
+            presets=[("1.0s", 1.0), ("2.0s", 2.0), ("3.0s", 3.0)],
+            hint="Interval between biometric evaluations while camera is active.",
+        )
+
+        # 4. Fallback unknown face timeout
+        self.var_unknown_timeout = tk.StringVar(value=str(int(getattr(self.config, "unknown_face_timeout_seconds", 60.0))))
+        self._build_numeric_row(
+            parent=card_idle,
+            label_text="Continuous Fallback Timeout:",
+            text_var=self.var_unknown_timeout,
+            unit="sec",
+            presets=[("30s", 30), ("60s", 60), ("120s", 120)],
+            hint="Lock duration used when smart inactivity detection is disabled.",
+        )
+
+        # SECTION 2: Biometric Validation & Match Thresholds Card
+        card_bio = tk.LabelFrame(
+            scrollable_frame,
+            text=" Biometric Sensitivity & Security Thresholds ",
+            font=FONT_SECTION,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
+            padx=14,
+            pady=10,
+            highlightthickness=1,
+            highlightbackground=BORDER_COLOR,
+        )
+        card_bio.pack(fill=tk.X, pady=(0, 14))
+
+        # Match Threshold Scale
+        min_match_val = float(getattr(self.config, "min_match_percent", 92.0))
+        self.var_min_match = tk.DoubleVar(value=min_match_val)
+
+        match_row = tk.Frame(card_bio, bg=BG_SURFACE)
+        match_row.pack(fill=tk.X, pady=(0, 2))
+
+        tk.Label(
+            match_row,
+            text="Validation Match Threshold:",
+            font=FONT_BODY_BOLD,
+            fg=TEXT_MAIN,
+            bg=BG_SURFACE,
+        ).pack(side=tk.LEFT)
+
+        self.lbl_match_readout = tk.Label(
+            match_row,
+            text=f"{self.var_min_match.get():.0f}% (High Security)",
+            font=FONT_BODY_BOLD,
+            fg=COLOR_EMERALD,
+            bg=BG_SURFACE,
+        )
+        self.lbl_match_readout.pack(side=tk.RIGHT)
+
+        def _on_scale(v):
+            val = float(v)
+            if val >= 92.0:
+                tag = "High Security"
+                col = COLOR_EMERALD
+            elif val >= 80.0:
+                tag = "Balanced"
+                col = COLOR_CYAN
+            else:
+                tag = "Permissive"
+                col = COLOR_AMBER
+            self.lbl_match_readout.configure(text=f"{val:.0f}% ({tag})", fg=col)
+
+        scale_slider = tk.Scale(
+            card_bio,
+            from_=50.0,
+            to=99.0,
+            resolution=1.0,
+            orient=tk.HORIZONTAL,
+            variable=self.var_min_match,
+            command=_on_scale,
+            bg=BG_SURFACE,
+            fg=COLOR_CYAN,
+            troughcolor=BG_SURFACE_ALT,
+            highlightthickness=0,
+            activebackground=COLOR_CYAN,
+            font=("Helvetica", 8),
+            showvalue=False,
+        )
+        scale_slider.pack(fill=tk.X, pady=(2, 2))
+
+        tk.Label(
+            card_bio,
+            text="Faces matching above this confidence threshold are accepted as valid (default 92%).",
+            font=FONT_SUBTITLE,
+            fg=TEXT_MUTED,
+            bg=BG_SURFACE,
+        ).pack(anchor="w", pady=(0, 8))
+
+        # Security check guards
+        guards_frame = tk.Frame(card_bio, bg=BG_SURFACE)
+        guards_frame.pack(fill=tk.X, pady=(4, 0))
+
+        self.var_blink = tk.BooleanVar(value=getattr(self.config, "blink_detection_enabled", True))
+        self.var_liveness = tk.BooleanVar(value=getattr(self.config, "liveness_enabled", True))
+        self.var_texture = tk.BooleanVar(value=getattr(self.config, "texture_anti_spoof_enabled", True))
+        self.var_structural = tk.BooleanVar(value=getattr(self.config, "structural_match_enabled", True))
+
+        row_g1 = tk.Frame(guards_frame, bg=BG_SURFACE)
+        row_g1.pack(fill=tk.X, pady=2)
+        tk.Checkbutton(
+            row_g1,
+            text="Photometric Eye Blink Detection",
+            variable=self.var_blink,
+            font=FONT_BODY,
+            fg=TEXT_MAIN,
+            bg=BG_SURFACE,
+            selectcolor=BG_SURFACE_ALT,
+            activebackground=BG_SURFACE,
+            activeforeground=COLOR_CYAN,
+        ).pack(side=tk.LEFT)
+
+        tk.Checkbutton(
+            row_g1,
+            text="Micro-Movement Liveness Verification",
+            variable=self.var_liveness,
+            font=FONT_BODY,
+            fg=TEXT_MAIN,
+            bg=BG_SURFACE,
+            selectcolor=BG_SURFACE_ALT,
+            activebackground=BG_SURFACE,
+            activeforeground=COLOR_CYAN,
+        ).pack(side=tk.RIGHT)
+
+        row_g2 = tk.Frame(guards_frame, bg=BG_SURFACE)
+        row_g2.pack(fill=tk.X, pady=2)
+        tk.Checkbutton(
+            row_g2,
+            text="Texture Anti-Spoofing (Anti-Replay)",
+            variable=self.var_texture,
+            font=FONT_BODY,
+            fg=TEXT_MAIN,
+            bg=BG_SURFACE,
+            selectcolor=BG_SURFACE_ALT,
+            activebackground=BG_SURFACE,
+            activeforeground=COLOR_CYAN,
+        ).pack(side=tk.LEFT)
+
+        tk.Checkbutton(
+            row_g2,
+            text="Cranial Bone Structural Validation",
+            variable=self.var_structural,
+            font=FONT_BODY,
+            fg=TEXT_MAIN,
+            bg=BG_SURFACE,
+            selectcolor=BG_SURFACE_ALT,
+            activebackground=BG_SURFACE,
+            activeforeground=COLOR_CYAN,
+        ).pack(side=tk.RIGHT)
+
+        # SECTION 3: Hardware & Device Options
+        card_dev = tk.LabelFrame(
+            scrollable_frame,
+            text=" Optical Camera Hardware ",
+            font=FONT_SECTION,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
+            padx=14,
+            pady=10,
+            highlightthickness=1,
+            highlightbackground=BORDER_COLOR,
+        )
+        card_dev.pack(fill=tk.X, pady=(0, 10))
+
+        self.var_cam_idx = tk.StringVar(value=str(getattr(self.config, "camera_index", 0)))
+        self._build_numeric_row(
+            parent=card_dev,
+            label_text="Camera Device Index:",
+            text_var=self.var_cam_idx,
+            unit="",
+            presets=[("Cam 0", 0), ("Cam 1", 1), ("Cam 2", 2)],
+            hint="V4L2 video index (0 for /dev/video0, 1 for /dev/video1).",
+        )
+
+    def _build_numeric_row(
+        self, parent, label_text: str, text_var: tk.StringVar, unit: str, presets: list[tuple[str, any]], hint: str
+    ):
+        row = tk.Frame(parent, bg=BG_SURFACE)
+        row.pack(fill=tk.X, pady=(4, 1))
+
+        tk.Label(row, text=label_text, font=FONT_BODY_BOLD, fg=TEXT_MAIN, bg=BG_SURFACE).pack(side=tk.LEFT)
+
+        for p_lbl, p_val in presets:
+            btn = tk.Button(
+                row,
+                text=p_lbl,
+                font=("Helvetica", 7, "bold"),
+                bg=BORDER_COLOR,
+                fg=COLOR_CYAN,
+                activebackground=COLOR_CYAN,
+                activeforeground="#000",
+                relief=tk.FLAT,
+                padx=5,
+                pady=1,
+                cursor="hand2",
+                command=lambda v=p_val, tv=text_var: tv.set(str(v)),
+            )
+            btn.pack(side=tk.RIGHT, padx=2)
+
+        entry_box = tk.Frame(row, bg=BG_SURFACE)
+        entry_box.pack(side=tk.RIGHT, padx=(0, 8))
+
+        entry = tk.Entry(
+            entry_box,
+            textvariable=text_var,
+            font=FONT_BODY,
+            bg=BG_SURFACE_ALT,
+            fg=TEXT_MAIN,
+            insertbackground=COLOR_CYAN,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=BORDER_COLOR,
+            highlightcolor=COLOR_CYAN,
+            width=6,
+            justify=tk.CENTER,
+        )
+        entry.pack(side=tk.LEFT)
+
+        if unit:
+            tk.Label(entry_box, text=f" {unit}", font=FONT_SUBTITLE, fg=TEXT_MUTED, bg=BG_SURFACE).pack(side=tk.LEFT)
+
+        hint_lbl = tk.Label(parent, text=hint, font=FONT_SUBTITLE, fg=TEXT_SUBTLE, bg=BG_SURFACE)
+        hint_lbl.pack(anchor="w", pady=(0, 6))
+
+    def _save(self):
+        try:
+            idle_timeout = float(self.var_idle_timeout.get().strip())
+            if idle_timeout < 5.0:
+                raise ValueError("Inactivity trigger timeout must be at least 5 seconds.")
+
+            face_window = float(self.var_face_window.get().strip())
+            if face_window < 2.0:
+                raise ValueError("Face verification window must be at least 2 seconds.")
+
+            check_interval = float(self.var_check_interval.get().strip())
+            if check_interval < 0.2 or check_interval > 30.0:
+                raise ValueError("Camera polling interval must be between 0.2 and 30 seconds.")
+
+            unknown_timeout = float(self.var_unknown_timeout.get().strip())
+            if unknown_timeout < 5.0:
+                raise ValueError("Fallback unknown face timeout must be at least 5 seconds.")
+
+            min_match = float(self.var_min_match.get())
+            if min_match < 50.0 or min_match > 100.0:
+                raise ValueError("Minimum match threshold must be between 50% and 100%.")
+
+            cam_idx = int(self.var_cam_idx.get().strip())
+            if cam_idx < 0:
+                raise ValueError("Camera index must be a non-negative integer (e.g. 0, 1).")
+
+        except ValueError as e:
+            messagebox.showerror("Invalid Configuration", str(e), parent=self)
+            return
+
+        self.config.idle_detection_enabled = bool(self.var_idle_enabled.get())
+        self.config.idle_timeout_seconds = idle_timeout
+        self.config.face_check_window_seconds = face_window
+        self.config.check_interval_seconds = check_interval
+        self.config.unknown_face_timeout_seconds = unknown_timeout
+        self.config.min_match_percent = min_match
+        self.config.camera_index = cam_idx
+        self.config.blink_detection_enabled = bool(self.var_blink.get())
+        self.config.liveness_enabled = bool(self.var_liveness.get())
+        self.config.texture_anti_spoof_enabled = bool(self.var_texture.get())
+        self.config.structural_match_enabled = bool(self.var_structural.get())
+
+        try:
+            self.config.save()
+        except Exception as e:
+            messagebox.showerror("Error Saving Configuration", f"Failed to write config.yaml: {e}", parent=self)
+            return
+
+        if self.on_save_callback:
+            self.on_save_callback(self.config)
+
+        self.destroy()
+
+
 class SplashScreen:
     """Displays an ultra-modern splash screen with branded banner and percentage bar."""
 
@@ -410,14 +885,14 @@ class FaceSetupGUI:
 
         if LOGO_PATH.exists():
             try:
-                self.logo_img = tk.PhotoImage(file=str(LOGO_PATH))
+                self.logo_img = tk.PhotoImage(file=str(LOGO_PATH), master=self.root)
                 self.root.iconphoto(True, self.logo_img)
                 raw_logo = cv2.imread(str(LOGO_PATH), cv2.IMREAD_UNCHANGED)
                 if raw_logo is not None:
                     logo_scaled = cv2.resize(raw_logo, (42, 42), interpolation=cv2.INTER_AREA)
                     ok, ppm = cv2.imencode(".ppm", logo_scaled)
                     if ok:
-                        self.header_logo_img = tk.PhotoImage(data=ppm.tobytes())
+                        self.header_logo_img = tk.PhotoImage(data=ppm.tobytes(), master=self.root)
                     else:
                         self.header_logo_img = self.logo_img.subsample(2, 2)
                 else:
@@ -458,9 +933,15 @@ class FaceSetupGUI:
         brand_frame.pack(side=tk.LEFT)
 
         if hasattr(self, "header_logo_img"):
-            tk.Label(brand_frame, image=self.header_logo_img, bg=BG_SURFACE).pack(side=tk.LEFT, padx=(0, 12))
+            try:
+                tk.Label(brand_frame, image=self.header_logo_img, bg=BG_SURFACE).pack(side=tk.LEFT, padx=(0, 12))
+            except Exception:
+                pass
         elif hasattr(self, "logo_img"):
-            tk.Label(brand_frame, image=self.logo_img, bg=BG_SURFACE).pack(side=tk.LEFT, padx=(0, 12))
+            try:
+                tk.Label(brand_frame, image=self.logo_img, bg=BG_SURFACE).pack(side=tk.LEFT, padx=(0, 12))
+            except Exception:
+                pass
 
         title_col = tk.Frame(brand_frame, bg=BG_SURFACE)
         title_col.pack(side=tk.LEFT)
@@ -488,7 +969,8 @@ class FaceSetupGUI:
         # Camera Index Badge
         cam_badge = tk.Frame(right_pills, bg=BG_SURFACE_ALT, padx=10, pady=4, highlightthickness=1, highlightbackground=BORDER_COLOR)
         cam_badge.pack(side=tk.LEFT, padx=6)
-        tk.Label(cam_badge, text=f"📹 Cam {self.config.camera_index}", font=FONT_BODY_BOLD, fg=TEXT_MUTED, bg=BG_SURFACE_ALT).pack()
+        self.cam_badge_lbl = tk.Label(cam_badge, text=f"📹 Cam {self.config.camera_index}", font=FONT_BODY_BOLD, fg=TEXT_MUTED, bg=BG_SURFACE_ALT)
+        self.cam_badge_lbl.pack()
 
         # Calibrate Button
         self.btn_top_calib = ModernButton(
@@ -502,6 +984,19 @@ class FaceSetupGUI:
             command=self._launch_calibration,
         )
         self.btn_top_calib.pack(side=tk.LEFT, padx=6)
+
+        # Settings Button
+        self.btn_top_settings = ModernButton(
+            right_pills,
+            text="⚙️  Settings",
+            bg_color=BG_SURFACE_ALT,
+            fg_color=COLOR_CYAN,
+            hover_color="#243452",
+            padx=10,
+            pady=4,
+            command=self._open_settings_dialog,
+        )
+        self.btn_top_settings.pack(side=tk.LEFT, padx=6)
 
         # Service Status Badge & Control
         self.service_badge = tk.Frame(right_pills, bg="#1E293B", padx=10, pady=4)
@@ -655,7 +1150,7 @@ class FaceSetupGUI:
         self.meter_liveness = MetricMeter(telemetry_box, "Micro-Movement Variance", max_val=1.5, unit="°")
         self.meter_liveness.pack(fill=tk.X, pady=(0, 6))
 
-        self.meter_match = MetricMeter(telemetry_box, "Stored Profile Match (Cosine)", max_val=1.0, unit="")
+        self.meter_match = MetricMeter(telemetry_box, "Profile Match Confidence", max_val=100.0, unit="%")
         self.meter_match.pack(fill=tk.X)
 
         # Enrolled Profiles Card (Max 2)
@@ -696,9 +1191,22 @@ class FaceSetupGUI:
         )
         self.btn_daemon_toggle.pack(side=tk.RIGHT)
 
+        self.btn_daemon_config = tk.Button(
+            s_top,
+            text="⚙️ Configure",
+            font=("Helvetica", 8),
+            bg=BORDER_COLOR,
+            fg=COLOR_CYAN,
+            activebackground=COLOR_CYAN,
+            activeforeground="#000",
+            relief=tk.FLAT,
+            command=self._open_settings_dialog,
+        )
+        self.btn_daemon_config.pack(side=tk.RIGHT, padx=(0, 6))
+
         self.daemon_desc_lbl = tk.Label(
             service_box,
-            text=f"Timeout: {int(self.config.unknown_face_timeout_seconds)}s | Interval: {self.config.check_interval_seconds}s",
+            text=self._get_daemon_desc_text(),
             font=FONT_BODY,
             fg=TEXT_MUTED,
             bg=BG_SURFACE_ALT,
@@ -999,8 +1507,49 @@ class FaceSetupGUI:
         self.btn_save.set_state(tk.DISABLED)
         self._update_daemon_status()
 
+    def _get_daemon_desc_text(self) -> str:
+        if getattr(self.config, "idle_detection_enabled", True):
+            return (
+                f"Idle: {int(self.config.idle_timeout_seconds)}s | "
+                f"Window: {int(self.config.face_check_window_seconds)}s | "
+                f"Match: {self.config.min_match_percent:.0f}%"
+            )
+        return (
+            f"Continuous: {int(self.config.unknown_face_timeout_seconds)}s | "
+            f"Interval: {self.config.check_interval_seconds}s | "
+            f"Match: {self.config.min_match_percent:.0f}%"
+        )
+
+    def _open_settings_dialog(self):
+        SettingsDialog(self.root, self.config, on_save_callback=self._on_settings_saved)
+
+    def _on_settings_saved(self, new_config: cfg.Config):
+        self.config = new_config
+        self.daemon_desc_lbl.configure(text=self._get_daemon_desc_text())
+        if hasattr(self, "cam_badge_lbl"):
+            self.cam_badge_lbl.configure(text=f"📹 Cam {self.config.camera_index}")
+        self.liveness_tracker = LivenessTracker(
+            window_size=self.config.liveness_window_size,
+            min_pose_variance=self.config.liveness_min_pose_variance,
+            blink_enabled=self.config.blink_detection_enabled,
+            blink_close_ratio=self.config.blink_close_ratio,
+            blink_min_duration=self.config.blink_min_duration,
+            blink_min_frames=self.config.blink_min_frames,
+        )
+        self._restart_daemon()
+        messagebox.showinfo(
+            "Settings Saved",
+            "Configuration successfully saved to config.yaml!\n\n"
+            f"• User Inactivity Trigger: {int(self.config.idle_timeout_seconds)}s\n"
+            f"• Face Verification Window: {int(self.config.face_check_window_seconds)}s\n"
+            f"• Min Match Threshold: {self.config.min_match_percent:.0f}%\n\n"
+            "The background auto-lock daemon has been reloaded.",
+            parent=self.root,
+        )
+
     def _update_daemon_status(self):
         def check():
+            active = False
             try:
                 res = subprocess.run(
                     ["systemctl", "--user", "is-active", "facelock-monitor"],
@@ -1008,7 +1557,17 @@ class FaceSetupGUI:
                     text=True,
                     timeout=3.0,
                 )
-                active = (res.stdout.strip() == "active")
+                if res.stdout.strip() == "active":
+                    active = True
+                else:
+                    pids_check = subprocess.run(
+                        ["pgrep", "-f", "facelock.monitor"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2.0,
+                    )
+                    if pids_check.returncode == 0 and pids_check.stdout.strip():
+                        active = True
             except Exception:
                 active = False
 
@@ -1053,12 +1612,27 @@ class FaceSetupGUI:
         threading.Thread(target=do_toggle, daemon=True).start()
 
     def _restart_daemon(self):
-        try:
-            subprocess.run(["systemctl", "--user", "restart", "facelock-monitor"], check=False, timeout=5.0)
-            time.sleep(0.5)
-            self._update_daemon_status()
-        except Exception:
-            pass
+        def do_restart():
+            try:
+                res = subprocess.run(["systemctl", "--user", "restart", "facelock-monitor"], check=False, timeout=5.0)
+                if res.returncode != 0:
+                    pids_check = subprocess.run(
+                        ["pgrep", "-f", "facelock.monitor"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2.0,
+                    )
+                    if pids_check.returncode == 0:
+                        subprocess.run(["pkill", "-f", "facelock.monitor"], check=False, timeout=3.0)
+                        time.sleep(0.3)
+                        subprocess.Popen([sys.executable, "-m", "facelock.monitor"])
+                time.sleep(0.5)
+            except Exception as e:
+                logger.debug("Restart daemon error: %s", e)
+            finally:
+                self.root.after(0, self._update_daemon_status)
+
+        threading.Thread(target=do_restart, daemon=True).start()
 
     def _video_loop(self):
         if not self.is_running:
@@ -1322,9 +1896,9 @@ class FaceSetupGUI:
                         if matched:
                             matched_name = "Session Face"
 
-                    score = best_score if best_score > 0 else 0.0
+                    match_pct = best_match_res.match_percent if best_match_res else 0.0
                     self.meter_match.set_value(
-                        score, f"{score:.2f}", COLOR_EMERALD if matched else COLOR_ROSE
+                        match_pct, f"{match_pct:.1f}%", COLOR_EMERALD if matched else COLOR_ROSE
                     )
 
                     has_blinked = (self.test_challenge_blinks > 0) or (
@@ -1334,15 +1908,16 @@ class FaceSetupGUI:
                     struct_pct = int(best_match_res.structure_score * 100) if best_match_res else 0
                     struct_tag = f" • BONE:{struct_pct}%" if struct_pct > 0 else ""
 
+                    min_pct = getattr(self.config, "min_match_percent", 92.0)
                     if matched and is_live:
                         if has_blinked:
-                            status_msg = f"✓ VERIFIED: {matched_name} ({score:.2f}{struct_tag})"
+                            status_msg = f"✓ VERIFIED: {matched_name} ({match_pct:.1f}% >= {min_pct:.0f}%{struct_tag})"
                             status_c = (0, 230, 118)
                         else:
-                            status_msg = f"MATCH: {matched_name} ({score:.2f}{struct_tag}) • BLINK"
+                            status_msg = f"MATCH: {matched_name} ({match_pct:.1f}% >= {min_pct:.0f}%{struct_tag}) • BLINK"
                             status_c = (0, 240, 255)
                     else:
-                        status_msg = f"UNKNOWN / SPOOF ({score:.2f})"
+                        status_msg = f"UNKNOWN / SPOOF ({match_pct:.1f}% < {min_pct:.0f}%)"
                         status_c = (63, 61, 244)
 
                     cv2.putText(

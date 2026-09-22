@@ -8,10 +8,12 @@ from facelock.gui import (
     LOGO_PATH,
     SPLASH_BANNER_PATH,
     FaceSetupGUI,
+    SettingsDialog,
     SplashScreen,
     center_window_on_monitor,
     get_active_monitor_geometry,
 )
+
 
 
 class TestGUI(unittest.TestCase):
@@ -119,6 +121,115 @@ class TestGUI(unittest.TestCase):
 
         gui._on_close()
 
+    def test_settings_dialog_load_and_save(self):
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+
+        cfg = Config(
+            idle_timeout_seconds=120.0,
+            face_check_window_seconds=30.0,
+            check_interval_seconds=2.0,
+            min_match_percent=92.0,
+        )
+        saved_configs = []
+
+        with patch.object(cfg, "save") as mock_save:
+            dlg = SettingsDialog(root, cfg, on_save_callback=lambda c: saved_configs.append(c))
+            dlg.withdraw()
+
+            # Verify initial form values
+            self.assertEqual(dlg.var_idle_timeout.get(), "120")
+            self.assertEqual(dlg.var_face_window.get(), "30")
+            self.assertEqual(dlg.var_check_interval.get(), "2.0")
+            self.assertEqual(dlg.var_min_match.get(), 92.0)
+            self.assertTrue(dlg.var_idle_enabled.get())
+
+            # Change values
+            dlg.var_idle_timeout.set("180")
+            dlg.var_face_window.set("45")
+            dlg.var_min_match.set(95.0)
+            dlg.var_check_interval.set("1.5")
+
+            dlg._save()
+
+            mock_save.assert_called_once()
+            self.assertEqual(len(saved_configs), 1)
+            self.assertEqual(saved_configs[0].idle_timeout_seconds, 180.0)
+            self.assertEqual(saved_configs[0].face_check_window_seconds, 45.0)
+            self.assertEqual(saved_configs[0].min_match_percent, 95.0)
+            self.assertEqual(saved_configs[0].check_interval_seconds, 1.5)
+
+        root.destroy()
+
+    @patch("tkinter.messagebox.showerror")
+    def test_settings_dialog_validation_error(self, mock_err):
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+
+        cfg = Config()
+        with patch.object(cfg, "save") as mock_save:
+            dlg = SettingsDialog(root, cfg)
+            dlg.withdraw()
+
+            # Invalid idle timeout < 5 seconds
+            dlg.var_idle_timeout.set("2")
+            dlg._save()
+            mock_err.assert_called_once()
+            mock_save.assert_not_called()
+
+            # Invalid face window < 2 seconds
+            mock_err.reset_mock()
+            dlg.var_idle_timeout.set("120")
+            dlg.var_face_window.set("1")
+            dlg._save()
+            mock_err.assert_called_once()
+            mock_save.assert_not_called()
+
+            # Invalid camera index < 0
+            mock_err.reset_mock()
+            dlg.var_face_window.set("30")
+            dlg.var_cam_idx.set("-1")
+            dlg._save()
+            mock_err.assert_called_once()
+            mock_save.assert_not_called()
+
+            dlg.destroy()
+
+        root.destroy()
+
+    @patch("facelock.gui.Camera")
+    @patch("facelock.gui.FaceSetupGUI._video_loop")
+    @patch("facelock.gui.FaceSetupGUI._update_daemon_status")
+    @patch("tkinter.messagebox.showinfo")
+    def test_face_setup_gui_settings_integration(self, mock_info, mock_status, mock_video, mock_cam):
+        mock_cam.return_value.open.return_value = True
+        config = Config(idle_timeout_seconds=120.0, face_check_window_seconds=30.0, min_match_percent=92.0)
+        mock_engine = MagicMock()
+        gui = FaceSetupGUI(config, mock_engine)
+        gui.root.withdraw()
+
+        # Check buttons and description
+        self.assertIsNotNone(gui.btn_top_settings)
+        self.assertIsNotNone(gui.btn_daemon_config)
+        desc = gui._get_daemon_desc_text()
+        self.assertIn("Idle: 120s", desc)
+        self.assertIn("Window: 30s", desc)
+        self.assertIn("Match: 92%", desc)
+
+        # Test settings saved callback
+        with patch.object(gui, "_restart_daemon") as mock_restart:
+            new_cfg = Config(idle_timeout_seconds=300.0, face_check_window_seconds=45.0, min_match_percent=95.0)
+            gui._on_settings_saved(new_cfg)
+            self.assertEqual(gui.config.idle_timeout_seconds, 300.0)
+            mock_restart.assert_called_once()
+            mock_info.assert_called_once()
+            self.assertIn("Idle: 300s", gui.daemon_desc_lbl.cget("text"))
+
+        gui._on_close()
+
 
 if __name__ == "__main__":
     unittest.main()
+

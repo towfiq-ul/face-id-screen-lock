@@ -68,6 +68,46 @@ class MatchResult:
     deep_score: float
     structure_score: float
     cranial_verified: bool
+    match_percent: float = 0.0
+
+
+def score_to_match_percentage(
+    deep_score: float,
+    struct_score: float = 0.0,
+    cranial_verified: bool = False,
+    baseline_threshold: float = 0.363,
+) -> float:
+    """Convert deep cosine similarity and cranial structure score to a calibrated 0-100% scale.
+
+    Calibration:
+    - Impostor / random noise (deep_score < 0.10): 0% - 40%
+    - Dissimilar face (0.10 <= deep_score < baseline_threshold): 40% - 88%
+    - Verified match at baseline threshold (deep_score >= baseline_threshold):
+      Base confidence is 91.0%. With cranial verification or higher cosine score,
+      reaches >= 92.0% (the required threshold for a valid face).
+    - High confidence match (0.50 - 0.85): 94% - 99.8%
+    """
+    if deep_score <= 0.0:
+        return 0.0
+
+    # If skull geometry matches, compensate for soft-tissue variation (weight change / expression)
+    effective_score = deep_score
+    if cranial_verified and deep_score >= (baseline_threshold - 0.07):
+        effective_score = max(effective_score, baseline_threshold)
+
+    if effective_score < 0.10:
+        pct = (effective_score / 0.10) * 40.0
+    elif effective_score < baseline_threshold:
+        ratio = (effective_score - 0.10) / max(0.01, (baseline_threshold - 0.10))
+        pct = 40.0 + ratio * 48.0
+    else:
+        ratio = min(1.0, (effective_score - baseline_threshold) / max(0.01, (0.75 - baseline_threshold)))
+        pct = 91.0 + ratio * 7.5
+
+    if struct_score >= 0.72 or cranial_verified:
+        pct += min(3.0, (struct_score - 0.70) * 10.0) if struct_score > 0.70 else 1.5
+
+    return round(float(np.clip(pct, 0.0, 99.9)), 1)
 
 
 def extract_cranial_structure(landmarks: np.ndarray) -> np.ndarray:
@@ -277,6 +317,7 @@ class FaceEngine:
         elif landmarks is not None:
             probe_struct = extract_cranial_structure(landmarks)
 
+        best_match_percent = 0.0
         best_fused_score = -1.0
         best_deep_score = -1.0
         best_struct_score = 0.0
@@ -284,6 +325,7 @@ class FaceEngine:
         matched = False
 
         threshold = self.config.match_threshold
+        min_percent = getattr(self.config, "min_match_percent", 92.0)
 
         for known in known_embeddings:
             k_flat = np.asarray(known, dtype=np.float32).reshape(-1)
@@ -301,25 +343,25 @@ class FaceEngine:
                 struct_score, _ = cranial_structure_similarity(probe_struct, k_flat[128:136])
 
             is_cranial_match = struct_score >= 0.72
-            is_this_matched = False
 
-            if deep_score >= threshold:
-                is_this_matched = True
-            elif (
-                self.config.structural_match_enabled
-                and is_cranial_match
-                and deep_score >= (threshold - 0.07)
-            ):
-                # Facial structure matches: provides resilience against weight changes (healthy/skinny)
-                is_this_matched = True
+            match_pct = score_to_match_percentage(
+                deep_score,
+                struct_score=struct_score,
+                cranial_verified=is_cranial_match,
+                baseline_threshold=threshold,
+            )
+
+            # Consider face valid if match percentage meets or exceeds threshold (e.g. >= 92.0%)
+            is_this_matched = match_pct >= min_percent
 
             if struct_score > 0.0:
                 fused = max(deep_score, 0.70 * deep_score + 0.30 * struct_score)
             else:
                 fused = deep_score
 
-            if fused > best_fused_score:
-                best_fused_score = fused
+            if match_pct > best_match_percent or fused > best_fused_score:
+                best_match_percent = max(best_match_percent, match_pct)
+                best_fused_score = max(best_fused_score, fused)
                 best_deep_score = deep_score
                 best_struct_score = struct_score
                 cranial_verified = is_cranial_match
@@ -333,6 +375,7 @@ class FaceEngine:
             deep_score=best_deep_score,
             structure_score=best_struct_score,
             cranial_verified=cranial_verified,
+            match_percent=best_match_percent,
         )
 
     def matches_any(
@@ -341,6 +384,6 @@ class FaceEngine:
         known_embeddings: np.ndarray,
         landmarks: np.ndarray | None = None,
     ) -> tuple[bool, float]:
-        """Compare `embedding` against every row in `known_embeddings`, return (is_match, best_score)."""
+        """Compare `embedding` against every row in `known_embeddings`, return (is_match, match_percent)."""
         res = self.match_detailed(embedding, known_embeddings, landmarks=landmarks)
-        return res.matched, res.fused_score
+        return res.matched, res.match_percent

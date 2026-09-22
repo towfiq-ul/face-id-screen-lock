@@ -54,7 +54,7 @@ def run_test(
     profiles_summary = ", ".join(f"'{name}' ({len(vecs)} vectors)" for name, vecs in current_profiles.items())
     print(f" • Profiles ({len(current_profiles)}/{profiles.MAX_PROFILES}): {profiles_summary}")
     print(f" • Camera Device: Index {config.camera_index}")
-    print(f" • SFace Cosine Match Threshold: {config.match_threshold}")
+    print(f" • Validation Threshold: >= {config.min_match_percent:.0f}% Match Confidence")
     print(f" • Structural Cranial Match: {'Enabled' if config.structural_match_enabled else 'Disabled'}")
     print(f" • Blink & Texture Anti-Spoof: {'Enabled' if config.liveness_enabled else 'Disabled'}")
     if show_window:
@@ -148,24 +148,31 @@ def run_test(
 
                 bone_pct = int(best_match_res.structure_score * 100) if best_match_res else 0
 
-                # Status decision
                 has_blinked = (blink_state.blink_count > 0) or (
                     (time.monotonic() - blink_state.last_blink_time) < 6.0
                 )
 
+                val = getattr(best_match_res, "match_percent", None) if best_match_res else 0.0
+                if isinstance(val, (int, float)):
+                    pct = float(val)
+                else:
+                    fused = getattr(best_match_res, "fused_score", 0.0) if best_match_res else 0.0
+                    pct = float(fused) * 100.0 if isinstance(fused, (int, float)) else 0.0
+
+                min_pct = getattr(config, "min_match_percent", 92.0)
                 if matched and is_live and live_tex:
                     matches_count += 1
                     if has_blinked:
-                        status_text = f"✓ VERIFIED: {matched_name} ({score:.2f} • BONE:{bone_pct}%)"
+                        status_text = f"✓ VERIFIED: {matched_name} ({pct:.1f}% >= {min_pct:.0f}% • BONE:{bone_pct}%)"
                         status_color = (0, 230, 118)  # Emerald
                     else:
-                        status_text = f"MATCH: {matched_name} ({score:.2f} • BONE:{bone_pct}%) - BLINK"
+                        status_text = f"MATCH: {matched_name} ({pct:.1f}% >= {min_pct:.0f}% • BONE:{bone_pct}%) - BLINK"
                         status_color = (0, 240, 255)  # Cyan
                 elif matched and not live_tex:
                     status_text = f"TEXTURE REJECTED ({tex_score:.1f} < {config.min_laplacian_var})"
                     status_color = (63, 61, 244)  # Red
                 else:
-                    status_text = f"UNKNOWN FACE ({score:.2f} < {config.match_threshold})"
+                    status_text = f"UNKNOWN FACE ({pct:.1f}% < {min_pct:.0f}%)"
                     status_color = (63, 61, 244)  # Red
 
                 # HUD drawing on display frame
@@ -233,7 +240,7 @@ def run_test(
                 verdict_badge = f"✅ MATCH: {matched_name}" if matched else "❌ NO MATCH"
                 light_tag = f" | Lum: {mean_lum:.0f} (🌙)" if is_low_light else f" | Lum: {mean_lum:.0f}"
                 print(
-                    f"\r[{verdict_badge}] Score: {score:.3f} (Thresh: {config.match_threshold}) | "
+                    f"\r[{verdict_badge}] Match: {pct:.1f}% (Thresh: {min_pct:.0f}%) | "
                     f"Bone: {bone_pct}% | Pose: {current_dir:<7} | Blinks: {blink_state.blink_count} | "
                     f"Live: {'YES' if is_live and live_tex else 'NO':<3}{light_tag}",
                     end="",

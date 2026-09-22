@@ -19,6 +19,7 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(cfg.idle_detection_enabled)
         self.assertEqual(cfg.idle_timeout_seconds, 120.0)
         self.assertEqual(cfg.face_check_window_seconds, 30.0)
+        self.assertEqual(cfg.min_match_percent, 92.0)
 
     def test_save_and_load_config(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

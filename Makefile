@@ -3,8 +3,12 @@ VENV := .venv
 VENV_BIN := $(abspath $(VENV)/bin)
 UNIT_NAME := facelock-monitor.service
 UNIT_DIR := $(HOME)/.config/systemd/user
+MONITOR_PID_FILE := .facelock-monitor.pid
+GUI_PID_FILE     := .facelock-gui.pid
+MONITOR_LOG_FILE := facelock-monitor.log
+GUI_LOG_FILE     := facelock-gui.log
 
-.PHONY: help venv test test-face test-face-cli verify remove-face enroll gui calibrate run install uninstall \
+.PHONY: help venv start stop status test test-face test-face-cli verify remove-face enroll gui calibrate run install uninstall \
         pam-status pam-enable pam-disable \
         service-install service-uninstall service-start service-stop service-restart service-status service-logs \
         desktop-install desktop-uninstall \
@@ -13,6 +17,10 @@ UNIT_DIR := $(HOME)/.config/systemd/user
 help:
 	@echo "FaceLock Management Targets:"
 	@echo "  make venv               Create virtual environment and install package"
+	@echo "  make start              Start GUI and background services locally"
+	@echo "  make stop               Stop GUI and background services locally"
+	@echo "  make status             Show status of GUI and background services"
+	@echo "  make run                Run monitor daemon in foreground"
 	@echo "  make gui                Launch graphical face setup wizard with live HUD"
 	@echo "  make calibrate          Launch camera diagnostic and biometric calibration assistant"
 	@echo "  make test-face          Test live camera face against saved profile (interactive HUD)"
@@ -22,7 +30,6 @@ help:
 	@echo "  make pam-disable        Disable FaceLock PAM unlock (restore default password)"
 	@echo "  make enroll             Enroll face via terminal (CLI mode)"
 	@echo "  make remove-face        Remove saved face profile (interactive menu or NAME=...)"
-	@echo "  make run                Run monitor daemon in foreground"
 	@echo "  make test               Run automated unit test suite"
 	@echo "  make lint               Check Python syntax and compile all modules"
 	@echo "  make install            Install system-wide via install.sh (/opt/facelock)"
@@ -39,8 +46,10 @@ help:
 	@echo "  make clean              Remove venv, build artifacts, and cache files"
 
 venv:
-	@if [ ! -d "$(VENV)" ]; then $(PYTHON) -m venv $(VENV); fi
-	$(VENV_BIN)/pip install -e ".[test]"
+	@if [ ! -d "$(VENV)" ] || [ ! -f "$(VENV_BIN)/facelock-monitor" ]; then \
+		$(PYTHON) -m venv $(VENV); \
+		$(VENV_BIN)/pip install -e ".[test]"; \
+	fi
 
 test: venv
 	$(VENV_BIN)/python -m unittest discover -s tests
@@ -76,6 +85,108 @@ gui: venv
 
 calibrate: venv
 	$(VENV_BIN)/facelock-calibrate
+
+start: venv
+	@echo "▶ Starting FaceLock application..."
+	@if [ -f $(MONITOR_PID_FILE) ] && kill -0 $$(cat $(MONITOR_PID_FILE)) 2>/dev/null; then \
+		echo "  ● Monitor Service is already running (PID: $$(cat $(MONITOR_PID_FILE)))."; \
+	elif systemctl --user is-active $(UNIT_NAME) >/dev/null 2>&1; then \
+		echo "  ● Monitor Service is already running via systemd."; \
+	else \
+		setsid $(VENV_BIN)/facelock-monitor </dev/null > $(MONITOR_LOG_FILE) 2>&1 & echo $$! > $(MONITOR_PID_FILE); \
+		sleep 0.8; \
+		if kill -0 $$(cat $(MONITOR_PID_FILE)) 2>/dev/null; then \
+			echo "  ✓ Monitor Service started in background (PID: $$(cat $(MONITOR_PID_FILE)))."; \
+			echo "    Log: $(MONITOR_LOG_FILE)"; \
+		else \
+			echo "  ❌ Monitor Service failed to start. Last log output:"; \
+			tail -n 10 $(MONITOR_LOG_FILE) 2>/dev/null || true; \
+			rm -f $(MONITOR_PID_FILE); \
+		fi; \
+	fi
+	@if [ -f $(GUI_PID_FILE) ] && kill -0 $$(cat $(GUI_PID_FILE)) 2>/dev/null; then \
+		echo "  ● GUI is already running (PID: $$(cat $(GUI_PID_FILE)))."; \
+	elif pgrep -x facelock-gui >/dev/null 2>&1; then \
+		echo "  ● GUI is already running."; \
+	else \
+		setsid $(VENV_BIN)/facelock-gui </dev/null > $(GUI_LOG_FILE) 2>&1 & echo $$! > $(GUI_PID_FILE); \
+		sleep 0.8; \
+		if kill -0 $$(cat $(GUI_PID_FILE)) 2>/dev/null; then \
+			echo "  ✓ GUI launched (PID: $$(cat $(GUI_PID_FILE)))."; \
+		else \
+			echo "  ❌ GUI failed to launch. Last log output:"; \
+			tail -n 10 $(GUI_LOG_FILE) 2>/dev/null || true; \
+			rm -f $(GUI_PID_FILE); \
+		fi; \
+	fi
+	@echo "Stop anytime: make stop"
+
+stop:
+	@echo "⏹ Stopping FaceLock application..."
+	@GUI_STOPPED=0; \
+	if [ -f $(GUI_PID_FILE) ]; then \
+		PID=$$(cat $(GUI_PID_FILE)); \
+		if [ -n "$$PID" ] && kill -0 $$PID 2>/dev/null; then \
+			kill -TERM $$PID 2>/dev/null || true; \
+			GUI_STOPPED=1; \
+		fi; \
+		rm -f $(GUI_PID_FILE); \
+	fi; \
+	if pgrep -x facelock-gui >/dev/null 2>&1; then \
+		pkill -x facelock-gui 2>/dev/null || true; \
+		GUI_STOPPED=1; \
+	fi; \
+	if [ $$GUI_STOPPED -eq 1 ]; then \
+		echo "  ✓ FaceLock GUI stopped."; \
+	else \
+		echo "  ○ FaceLock GUI was not running."; \
+	fi
+	@MON_STOPPED=0; \
+	if [ -f $(MONITOR_PID_FILE) ]; then \
+		PID=$$(cat $(MONITOR_PID_FILE)); \
+		if [ -n "$$PID" ] && kill -0 $$PID 2>/dev/null; then \
+			kill -TERM $$PID 2>/dev/null || true; \
+			for i in 1 2 3 4 5; do \
+				if ! kill -0 $$PID 2>/dev/null; then break; fi; \
+				sleep 0.3; \
+			done; \
+			if kill -0 $$PID 2>/dev/null; then kill -9 $$PID 2>/dev/null || true; fi; \
+			MON_STOPPED=1; \
+		fi; \
+		rm -f $(MONITOR_PID_FILE); \
+	fi; \
+	if pgrep -x facelock-monitor >/dev/null 2>&1; then \
+		pkill -x facelock-monitor 2>/dev/null || true; \
+		MON_STOPPED=1; \
+	fi; \
+	if systemctl --user is-active $(UNIT_NAME) >/dev/null 2>&1; then \
+		systemctl --user stop $(UNIT_NAME) 2>/dev/null || true; \
+		MON_STOPPED=1; \
+	fi; \
+	if [ $$MON_STOPPED -eq 1 ]; then \
+		echo "  ✓ FaceLock monitor service stopped."; \
+	else \
+		echo "  ○ FaceLock monitor service was not running."; \
+	fi
+
+status:
+	@echo "FaceLock Application Status:"
+	@if [ -f $(GUI_PID_FILE) ] && kill -0 $$(cat $(GUI_PID_FILE)) 2>/dev/null; then \
+		echo "  ● GUI: RUNNING (PID: $$(cat $(GUI_PID_FILE)))"; \
+	elif pgrep -x facelock-gui >/dev/null 2>&1; then \
+		echo "  ● GUI: RUNNING (PID: $$(pgrep -x facelock-gui | head -n1))"; \
+	else \
+		echo "  ○ GUI: STOPPED"; \
+	fi
+	@if [ -f $(MONITOR_PID_FILE) ] && kill -0 $$(cat $(MONITOR_PID_FILE)) 2>/dev/null; then \
+		echo "  ● Monitor Service: RUNNING locally (PID: $$(cat $(MONITOR_PID_FILE)))"; \
+	elif systemctl --user is-active $(UNIT_NAME) >/dev/null 2>&1; then \
+		echo "  ● Monitor Service: RUNNING via systemd --user"; \
+	elif pgrep -x facelock-monitor >/dev/null 2>&1; then \
+		echo "  ● Monitor Service: RUNNING (PID: $$(pgrep -x facelock-monitor | head -n1))"; \
+	else \
+		echo "  ○ Monitor Service: STOPPED"; \
+	fi
 
 run: venv
 	$(VENV_BIN)/facelock-monitor
@@ -123,6 +234,6 @@ service-logs:
 	journalctl --user -u $(UNIT_NAME) -f
 
 clean:
-	rm -rf $(VENV) facelock.egg-info build dist .pytest_cache
+	rm -rf $(VENV) facelock.egg-info build dist .pytest_cache .facelock*.pid facelock*.log *.pid *.log
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true

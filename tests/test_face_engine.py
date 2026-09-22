@@ -12,6 +12,7 @@ from facelock.face_engine import (
     cranial_structure_similarity,
     enhance_low_light,
     extract_cranial_structure,
+    score_to_match_percentage,
 )
 
 
@@ -38,15 +39,15 @@ class TestFaceEngine(unittest.TestCase):
         # Return cosine match score of 0.8
         mock_recognizer.match.return_value = 0.8
 
-        cfg = Config(match_threshold=0.5)
+        cfg = Config(match_threshold=0.363, min_match_percent=92.0)
         engine = FaceEngine(cfg)
 
         emb = np.zeros((1, 128), dtype=np.float32)
         known = np.zeros((3, 128), dtype=np.float32)
 
-        matched, score = engine.matches_any(emb, known)
+        matched, match_pct = engine.matches_any(emb, known)
         self.assertTrue(matched)
-        self.assertEqual(score, 0.8)
+        self.assertGreaterEqual(match_pct, 92.0)
 
     @patch("cv2.FaceRecognizerSF.create")
     @patch("cv2.FaceDetectorYN.create")
@@ -56,15 +57,15 @@ class TestFaceEngine(unittest.TestCase):
         mock_rec.return_value = mock_recognizer
         mock_recognizer.match.return_value = 0.2
 
-        cfg = Config(match_threshold=0.5)
+        cfg = Config(match_threshold=0.363, min_match_percent=92.0)
         engine = FaceEngine(cfg)
 
         emb = np.zeros((1, 128), dtype=np.float32)
         known = np.zeros((3, 128), dtype=np.float32)
 
-        matched, score = engine.matches_any(emb, known)
+        matched, match_pct = engine.matches_any(emb, known)
         self.assertFalse(matched)
-        self.assertEqual(score, 0.2)
+        self.assertLess(match_pct, 92.0)
 
     def test_cranial_structure_healthy_vs_skinny_invariance(self):
         # Base face
@@ -154,6 +155,45 @@ class TestFaceEngine(unittest.TestCase):
         face = engine.best_face(dark_frame, allow_low_light_boost=True)
         self.assertIsNotNone(face)
         self.assertEqual(face[14], 0.72)
+
+    def test_score_to_match_percentage_calibration(self):
+        # 1. Negative or near-zero cosine (noise / totally unrelated)
+        self.assertEqual(score_to_match_percentage(0.0), 0.0)
+        self.assertLess(score_to_match_percentage(0.05), 40.0)
+
+        # 2. Impostor face (0.20 - 0.30 cosine) -> strictly below 92%
+        impostor_pct = score_to_match_percentage(0.25)
+        self.assertLess(impostor_pct, 92.0)
+        self.assertGreaterEqual(impostor_pct, 50.0)
+
+        # 3. Genuine face meeting baseline threshold (0.363 + cranial verification) -> >= 92%
+        valid_pct = score_to_match_percentage(0.363, struct_score=0.85, cranial_verified=True)
+        self.assertGreaterEqual(valid_pct, 92.0)
+
+        # 4. Strong genuine face (0.60 - 0.80) -> high 90s%
+        high_pct = score_to_match_percentage(0.65, struct_score=0.88, cranial_verified=True)
+        self.assertGreaterEqual(high_pct, 95.0)
+
+    @patch("cv2.FaceRecognizerSF.create")
+    @patch("cv2.FaceDetectorYN.create")
+    @patch("facelock.face_engine.ensure_models")
+    def test_valid_face_92_percent_threshold(self, mock_ensure, mock_det, mock_rec):
+        mock_rec.return_value.match.return_value = 0.50  # genuine face
+        cfg = Config(min_match_percent=92.0)
+        engine = FaceEngine(cfg)
+
+        emb = np.zeros((1, 128), dtype=np.float32)
+        known = np.zeros((1, 128), dtype=np.float32)
+
+        res = engine.match_detailed(emb, known)
+        self.assertTrue(res.matched)
+        self.assertGreaterEqual(res.match_percent, 92.0)
+
+        # Now test with impostor score (e.g. 0.20 cosine)
+        mock_rec.return_value.match.return_value = 0.20
+        res_impostor = engine.match_detailed(emb, known)
+        self.assertFalse(res_impostor.matched)
+        self.assertLess(res_impostor.match_percent, 92.0)
 
 
 if __name__ == "__main__":

@@ -64,6 +64,7 @@ class Config:
     idle_detection_enabled: bool = True
     idle_timeout_seconds: float = 120.0  # 2 min without user interaction triggers check
     face_check_window_seconds: float = 30.0  # 30s window to match face before locking
+    min_match_percent: float = 92.0  # Percentage required to be considered a valid face (>= 92%)
 
     @classmethod
     def load(cls) -> "Config":

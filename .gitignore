@@ -6,6 +6,8 @@
 *.egg-info/
 __pycache__/
 *.pyc
+build/
+dist/
 
 # Local review documentation
 IMPROVEMENTS.md

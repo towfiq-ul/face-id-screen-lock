@@ -386,7 +386,7 @@ class FaceSetupGUI:
         ("TURN LEFT", "Turn your head to the LEFT and hold steady", "LEFT", -15.0),
         ("TURN RIGHT", "Turn your head to the RIGHT and hold steady", "RIGHT", 15.0),
         ("BLINK TO VERIFY", "Blink your eyes to complete live biometric enrollment", "BLINK", 0.0),
-        ("SMILE TO VERIFY", "Smile to complete facial muscle dynamic verification", "SMILE", 0.0),
+        ("SMILE TO VERIFY", "Smile or show teeth to complete facial muscle dynamic verification", "SMILE", 0.0),
     ]
 
     def __init__(self, config: cfg.Config, engine: FaceEngine):
@@ -398,7 +398,9 @@ class FaceSetupGUI:
             min_pose_variance=config.liveness_min_pose_variance,
             blink_enabled=config.blink_detection_enabled,
         )
-        self.smile_detector = SmileDetector()
+        self.smile_detector = SmileDetector(expansion_threshold=1.05, min_absolute_ratio=0.85)
+        self.smile_steady_count = 0
+        self.blink_steady_count = 0
 
         self.root = tk.Tk(className="facelock")
         self.root.title("FaceLock Studio — Biometric Face Setup")
@@ -858,6 +860,11 @@ class FaceSetupGUI:
             if len(self.captured_embeddings) >= self.config.enroll_frame_count:
                 self.captured_embeddings.clear()
                 self.last_pose = None
+            if len(self.captured_embeddings) == 0:
+                self.smile_detector.reset()
+                self.liveness_tracker.reset()
+            self.smile_steady_count = 0
+            self.blink_steady_count = 0
             self.is_enrolling = True
             self.btn_enroll.set_text("⏸  Pause Enrollment")
             self.btn_enroll.set_colors(COLOR_AMBER, "#000", "#FBBF24")
@@ -1068,16 +1075,27 @@ class FaceSetupGUI:
                     if target_dir == "BLINK":
                         if blink_state.is_blinking:
                             direction_matched = True
-                        elif current_dir == "CENTER" and self.pose_hold_count >= 5:
-                            direction_matched = True
+                            self.blink_steady_count = 0
+                        elif current_dir == "CENTER":
+                            self.blink_steady_count += 1
+                            if self.blink_steady_count >= 15:
+                                direction_matched = True
+                        else:
+                            self.blink_steady_count = 0
                     elif target_dir == "SMILE":
-                        is_smiling, smile_ratio = self.smile_detector.update(landmarks)
+                        is_smiling, smile_ratio = self.smile_detector.update(landmarks, frame=frame)
                         if is_smiling:
                             direction_matched = True
-                        elif current_dir == "CENTER" and self.pose_hold_count >= 10:
-                            direction_matched = True
+                            self.smile_steady_count = 0
+                        elif current_dir == "CENTER":
+                            self.smile_steady_count += 1
+                            if self.smile_steady_count >= 20:
+                                direction_matched = True
+                        else:
+                            self.smile_steady_count = 0
                     elif target_dir == "CENTER" and current_dir == "CENTER":
                         direction_matched = True
+                        self.smile_detector.record_baseline(landmarks)
                     elif target_dir == "RIGHT" and ("RIGHT" in current_dir):
                         direction_matched = True
                     elif target_dir == "LEFT" and ("LEFT" in current_dir):
@@ -1195,10 +1213,13 @@ class FaceSetupGUI:
                             status_color = (0, 240, 255)
                     elif target_dir == "SMILE":
                         if direction_matched:
-                            status_text = "✓ SMILE DETECTED! VERIFIED 😊"
+                            if getattr(self.smile_detector, "teeth_detected", False):
+                                status_text = "✓ TEETH & SMILE VERIFIED 😊"
+                            else:
+                                status_text = "✓ SMILE DETECTED! VERIFIED 😊"
                             status_color = (0, 230, 118)
                         else:
-                            status_text = "CHALLENGE: SMILE FOR THE CAMERA 😊"
+                            status_text = "CHALLENGE: SMILE (SHOW TEETH) 😊"
                             status_color = (0, 240, 255)
                     elif direction_matched:
                         status_text = f"HOLD {target_dir} ({self.pose_hold_count}/{self.target_hold_needed})"

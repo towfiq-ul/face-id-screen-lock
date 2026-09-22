@@ -469,11 +469,71 @@ class BlinkDetector:
         )
 
 
-def check_smile(landmarks: np.ndarray, min_ratio: float = 0.92) -> tuple[bool, float]:
-    """Calculate mouth-to-eye width ratio to detect smiling.
+def check_teeth(
+    frame: np.ndarray,
+    landmarks: np.ndarray,
+    min_pixels: int = 6,
+    min_ratio: float = 0.025,
+) -> tuple[bool, int, float]:
+    """Detect presence of visible teeth between upper and lower lips.
+
+    Crops the central inter-labial region between the mouth corners.
+    Teeth enamel presents with low color saturation (white/ivory) and elevated
+    luminance compared to reddish/pink lip tissue and dark shadows.
+    """
+    if frame is None or frame.size == 0:
+        return False, 0, 0.0
+
+    pts = np.asarray(landmarks, dtype=np.float64).reshape(5, 2)
+    m_right, m_left = pts[3], pts[4]
+    mouth_w = float(np.hypot(*(m_left - m_right)))
+    if mouth_w < 10.0:
+        return False, 0, 0.0
+
+    cx = float((m_right[0] + m_left[0]) / 2.0)
+    cy = float((m_right[1] + m_left[1]) / 2.0)
+
+    # Focus on central 55% horizontal and 35% vertical span between mouth corners
+    w = max(10, int(0.55 * mouth_w))
+    h = max(6, int(0.35 * mouth_w))
+    fh, fw = frame.shape[:2]
+
+    x1 = max(0, int(round(cx - w / 2.0)))
+    y1 = max(0, int(round(cy - h / 2.0)))
+    x2 = min(fw, x1 + w)
+    y2 = min(fh, y1 + h)
+
+    if x2 - x1 < 6 or y2 - y1 < 4:
+        return False, 0, 0.0
+
+    crop = frame[y1:y2, x1:x2]
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    s = hsv[:, :, 1]
+    v = hsv[:, :, 2]
+    b = crop[:, :, 0].astype(np.float32)
+    g = crop[:, :, 1].astype(np.float32)
+    r = crop[:, :, 2].astype(np.float32)
+
+    # Teeth: low color saturation (white/ivory), moderate-to-high brightness, balanced RGB
+    teeth_mask = (s <= 75) & (v >= 95) & (np.abs(r - b) < 35) & (np.abs(r - g) < 25)
+    pixel_count = int(np.sum(teeth_mask))
+    total_pixels = crop.shape[0] * crop.shape[1]
+    ratio = float(pixel_count / total_pixels) if total_pixels > 0 else 0.0
+
+    is_teeth = (pixel_count >= min_pixels) and (ratio >= min_ratio)
+    return is_teeth, pixel_count, ratio
+
+
+def check_smile(
+    landmarks: np.ndarray,
+    min_ratio: float = 0.88,
+    frame: np.ndarray | None = None,
+) -> tuple[bool, float]:
+    """Calculate mouth-to-eye width ratio and teeth exposure to detect smiling.
 
     When smiling, the zygomaticus major muscle contracts, significantly widening
-    the mouth relative to inter-ocular distance.
+    the mouth relative to inter-ocular distance. A little smile with teeth will also
+    expose white enamel pixels between the lips.
     """
     pts = np.asarray(landmarks, dtype=np.float64).reshape(5, 2)
     eye_dist = float(np.hypot(*(pts[1] - pts[0])))
@@ -481,22 +541,52 @@ def check_smile(landmarks: np.ndarray, min_ratio: float = 0.92) -> tuple[bool, f
         return False, 0.0
     mouth_w = float(np.hypot(*(pts[4] - pts[3])))
     ratio = float(mouth_w / eye_dist)
+
+    if frame is not None:
+        has_teeth, _, _ = check_teeth(frame, landmarks)
+        if has_teeth and ratio >= 0.74:
+            return True, ratio
+
     return ratio >= min_ratio, ratio
 
 
 class SmileDetector:
-    """Detects deliberate human smiles using dynamic mouth width expansion."""
+    """Detects deliberate human smiles using dynamic mouth width expansion and teeth detection."""
 
-    def __init__(self, expansion_threshold: float = 1.10):
+    def __init__(
+        self,
+        expansion_threshold: float = 1.05,
+        min_absolute_ratio: float = 0.85,
+    ):
         self.expansion_threshold = expansion_threshold
+        self.min_absolute_ratio = min_absolute_ratio
         self.baseline_ratio: float = 0.0
         self.is_smiling: bool = False
+        self.teeth_detected: bool = False
 
     def reset(self) -> None:
         self.baseline_ratio = 0.0
         self.is_smiling = False
+        self.teeth_detected = False
 
-    def update(self, landmarks: np.ndarray) -> tuple[bool, float]:
+    def record_baseline(self, landmarks: np.ndarray) -> None:
+        """Record neutral resting mouth ratio during neutral face holds."""
+        pts = np.asarray(landmarks, dtype=np.float64).reshape(5, 2)
+        eye_dist = float(np.hypot(*(pts[1] - pts[0])))
+        if eye_dist < 8.0:
+            return
+        mouth_w = float(np.hypot(*(pts[4] - pts[3])))
+        ratio = float(mouth_w / eye_dist)
+        if self.baseline_ratio <= 0.0:
+            self.baseline_ratio = ratio
+        else:
+            self.baseline_ratio = 0.90 * self.baseline_ratio + 0.10 * ratio
+
+    def update(
+        self,
+        landmarks: np.ndarray,
+        frame: np.ndarray | None = None,
+    ) -> tuple[bool, float]:
         pts = np.asarray(landmarks, dtype=np.float64).reshape(5, 2)
         eye_dist = float(np.hypot(*(pts[1] - pts[0])))
         if eye_dist < 8.0:
@@ -507,13 +597,30 @@ class SmileDetector:
         if self.baseline_ratio <= 0.0:
             self.baseline_ratio = ratio
         elif not self.is_smiling:
-            if ratio < self.baseline_ratio * 1.05:
+            # Smoothly adapt resting baseline only on very minor resting drift (<3%)
+            if ratio < self.baseline_ratio * 1.03:
                 self.baseline_ratio = 0.95 * self.baseline_ratio + 0.05 * ratio
 
-        is_smile = (
-            ratio >= self.baseline_ratio * self.expansion_threshold
-            or ratio >= 0.95
-        )
+        # Check for visible teeth if video frame is provided
+        self.teeth_detected = False
+        if frame is not None:
+            has_teeth, _, _ = check_teeth(frame, landmarks)
+            self.teeth_detected = has_teeth
+
+        # Smile Detection Logic:
+        # 1. Little smile with visible teeth:
+        #    Even a subtle mouth opening with teeth exposure confirms a smile!
+        if self.teeth_detected and ratio >= max(0.68, self.baseline_ratio * 0.98):
+            is_smile = True
+        # 2. Dynamic horizontal expansion (e.g. >= 5% widening over neutral baseline):
+        elif ratio >= self.baseline_ratio * self.expansion_threshold:
+            is_smile = True
+        # 3. Absolute threshold for clear smiles:
+        elif ratio >= self.min_absolute_ratio:
+            is_smile = True
+        else:
+            is_smile = False
+
         self.is_smiling = is_smile
         return is_smile, ratio
 

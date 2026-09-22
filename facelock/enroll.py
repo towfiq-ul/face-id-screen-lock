@@ -28,7 +28,7 @@ ENROLL_STEPS = [
     ("LEFT", "Turn your head to the LEFT"),
     ("RIGHT", "Turn your head to the RIGHT"),
     ("BLINK", "Blink your eyes to complete live biometric enrollment"),
-    ("SMILE", "Smile to complete facial muscle dynamic verification"),
+    ("SMILE", "Smile (or show teeth) to complete facial muscle dynamic verification"),
 ]
 
 
@@ -75,7 +75,7 @@ def enroll(config: cfg.Config | None = None) -> None:
         min_blink_duration=config.blink_min_duration,
         min_closed_frames=config.blink_min_frames,
     )
-    smile_detector = SmileDetector()
+    smile_detector = SmileDetector(expansion_threshold=1.05, min_absolute_ratio=0.85)
 
     with Camera(config.camera_index) as camera:
         if camera._cap is None:
@@ -131,17 +131,21 @@ def enroll(config: cfg.Config | None = None) -> None:
                         if hold_count >= 15:  # fallback after ~0.75s steady hold
                             direction_matched = True
                 elif target_dir == "SMILE":
-                    is_smiling, smile_ratio = smile_detector.update(landmarks)
+                    is_smiling, smile_ratio = smile_detector.update(landmarks, frame=frame)
                     if is_smiling:
                         direction_matched = True
                         hold_count = required_holds  # instant capture on confirmed smile!
-                        print(f"  😊 Smile verified ({int(smile_ratio*100)}% width ratio)! Live dynamic confirmed.")
+                        if getattr(smile_detector, "teeth_detected", False):
+                            print(f"  😊 Smile verified (teeth visible, {int(smile_ratio*100)}% width ratio)! Live dynamic confirmed.")
+                        else:
+                            print(f"  😊 Smile verified ({int(smile_ratio*100)}% width ratio)! Live dynamic confirmed.")
                     elif current_dir == "CENTER":
                         hold_count += 1
                         if hold_count >= 20:  # fallback after ~1.0s steady hold
                             direction_matched = True
                 elif target_dir == "CENTER" and current_dir == "CENTER":
                     direction_matched = True
+                    smile_detector.record_baseline(landmarks)
                 elif target_dir == "RIGHT" and ("RIGHT" in current_dir):
                     direction_matched = True
                 elif target_dir == "LEFT" and ("LEFT" in current_dir):

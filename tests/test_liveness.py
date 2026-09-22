@@ -10,6 +10,7 @@ from facelock.liveness import (
     calculate_eye_openness,
     check_3d_cranial_consistency,
     check_smile,
+    check_teeth,
     check_texture_liveness,
     estimate_head_pose,
 )
@@ -441,6 +442,69 @@ class TestLiveness(unittest.TestCase):
         # 2. Smile face
         s_flag, _ = detector.update(smile_lm)
         self.assertTrue(s_flag)
+
+    def test_check_teeth_and_little_smile(self):
+        # Create a blank 400x500 image with a face
+        frame = np.full((400, 500, 3), [120, 140, 200], dtype=np.uint8)  # skin tone
+        landmarks = np.array([
+            [200.0, 150.0],  # right eye
+            [280.0, 150.0],  # left eye
+            [240.0, 190.0],  # nose
+            [210.0, 230.0],  # right mouth corner
+            [270.0, 230.0],  # left mouth corner
+        ])
+
+        # Without teeth (reddish closed lips in mouth area)
+        frame[225:235, 220:260] = [80, 90, 180]  # reddish lips
+        has_teeth_closed, _, _ = check_teeth(frame, landmarks)
+        self.assertFalse(has_teeth_closed)
+
+        # With teeth: draw small white/ivory teeth patch between lips
+        frame_teeth = frame.copy()
+        frame_teeth[227:233, 230:250] = [190, 200, 210]  # ivory enamel
+        has_teeth_open, count, ratio = check_teeth(frame_teeth, landmarks)
+        self.assertTrue(has_teeth_open)
+        self.assertGreater(count, 5)
+        self.assertGreater(ratio, 0.02)
+
+        # check_smile with frame showing teeth confirms smile even on slight ratio
+        is_smile_with_teeth, r = check_smile(landmarks, frame=frame_teeth)
+        self.assertTrue(is_smile_with_teeth)
+
+        # SmileDetector with frame detects little smile with teeth
+        detector = SmileDetector()
+        detector.record_baseline(landmarks)
+        s_flag, _ = detector.update(landmarks, frame=frame_teeth)
+        self.assertTrue(s_flag)
+        self.assertTrue(detector.teeth_detected)
+
+    def test_little_smile_expansion_and_reset(self):
+        # Baseline neutral face
+        neutral_lm = np.array([
+            [200.0, 150.0],
+            [280.0, 150.0],
+            [240.0, 190.0],
+            [210.0, 230.0],
+            [270.0, 230.0],  # mouth_w = 60, ratio = 60/80 = 0.75
+        ])
+        # Subtle 5.5% expansion (little smile: mouth_w = 63.5, ratio = ~0.794)
+        subtle_smile_lm = np.array([
+            [200.0, 150.0],
+            [280.0, 150.0],
+            [240.0, 190.0],
+            [208.2, 229.0],
+            [271.8, 229.0],
+        ])
+
+        detector = SmileDetector(expansion_threshold=1.05)
+        detector.record_baseline(neutral_lm)
+        s_flag, _ = detector.update(subtle_smile_lm)
+        self.assertTrue(s_flag)
+
+        detector.reset()
+        self.assertEqual(detector.baseline_ratio, 0.0)
+        self.assertFalse(detector.is_smiling)
+        self.assertFalse(detector.teeth_detected)
 
 
 if __name__ == "__main__":

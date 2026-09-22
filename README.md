@@ -26,7 +26,7 @@ Tested on **Ubuntu 24.04**, GNOME on X11 / Wayland, GDM.
 Install FaceLock system-wide in one command via `curl`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/towfiq-ul/face-id-screen-lock/develop/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/towfiq-ul/face-id-screen-lock/master/install.sh | bash
 ```
 
 The installer displays a branded banner with percentage progress bars:

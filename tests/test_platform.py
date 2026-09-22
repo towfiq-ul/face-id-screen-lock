@@ -47,6 +47,28 @@ class TestPlatformLinux(unittest.TestCase):
         backend.lock()
         mock_run.assert_called_once_with(["loginctl", "lock-session", "3"], check=False, timeout=3.0)
 
+    @patch.object(LinuxBackend, "_get_gnome_mutter_idle")
+    def test_get_idle_seconds_mutter(self, mock_mutter):
+        mock_mutter.return_value = 12.5
+        backend = LinuxBackend()
+        self.assertEqual(backend.get_idle_seconds(), 12.5)
+
+    @patch.object(LinuxBackend, "_get_xprintidle")
+    @patch.object(LinuxBackend, "_get_x11_idle")
+    @patch.object(LinuxBackend, "_get_gnome_mutter_idle")
+    def test_get_idle_seconds_x11_fallback(self, mock_mutter, mock_x11, mock_xprint):
+        mock_mutter.return_value = None
+        mock_x11.return_value = 45.0
+        backend = LinuxBackend()
+        self.assertEqual(backend.get_idle_seconds(), 45.0)
+
+    @patch("subprocess.check_output")
+    def test_get_gnome_mutter_idle_parses_output(self, mock_output):
+        mock_output.return_value = "(uint64 12500,)\n"
+        backend = LinuxBackend()
+        idle = backend._get_gnome_mutter_idle()
+        self.assertEqual(idle, 12.5)
+
 
 if __name__ == "__main__":
     unittest.main()

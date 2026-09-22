@@ -61,6 +61,9 @@ class Config:
     blink_min_frames: int = 2
     min_laplacian_var: float = 8.0
     ir_camera_index: int | None = None
+    idle_detection_enabled: bool = True
+    idle_timeout_seconds: float = 120.0  # 2 min without user interaction triggers check
+    face_check_window_seconds: float = 30.0  # 30s window to match face before locking
 
     @classmethod
     def load(cls) -> "Config":

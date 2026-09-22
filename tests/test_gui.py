@@ -96,7 +96,27 @@ class TestGUI(unittest.TestCase):
         gui.root.withdraw()
 
         self.assertIsNotNone(gui.btn_top_calib)
+        self.assertIsNotNone(gui.btn_toggle_daemon)
         self.assertIsNotNone(gui.header_logo_img)
+        gui._on_close()
+
+    @patch("subprocess.run")
+    @patch("facelock.gui.Camera")
+    @patch("facelock.gui.FaceSetupGUI._video_loop")
+    @patch("facelock.gui.FaceSetupGUI._update_daemon_status")
+    def test_toggle_daemon_action(self, mock_status, mock_video, mock_cam, mock_sub):
+        mock_cam.return_value.open.return_value = True
+        config = Config()
+        mock_engine = MagicMock()
+        gui = FaceSetupGUI(config, mock_engine)
+        gui.root.withdraw()
+
+        gui.daemon_active = True
+        gui._toggle_daemon()
+        gui.root.update()
+        # Should initiate stop command
+        mock_sub.assert_called_with(["systemctl", "--user", "stop", "facelock-monitor"], check=False, timeout=5.0)
+
         gui._on_close()
 
 

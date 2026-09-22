@@ -16,6 +16,9 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg.match_threshold, 0.363)
         self.assertEqual(cfg.detection_score_threshold, 0.9)
         self.assertEqual(cfg.enroll_frame_count, 7)
+        self.assertTrue(cfg.idle_detection_enabled)
+        self.assertEqual(cfg.idle_timeout_seconds, 120.0)
+        self.assertEqual(cfg.face_check_window_seconds, 30.0)
 
     def test_save_and_load_config(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

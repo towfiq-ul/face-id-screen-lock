@@ -503,17 +503,29 @@ class FaceSetupGUI:
         )
         self.btn_top_calib.pack(side=tk.LEFT, padx=6)
 
-        # Service Status Badge
+        # Service Status Badge & Control
         self.service_badge = tk.Frame(right_pills, bg="#1E293B", padx=10, pady=4)
-        self.service_badge.pack(side=tk.LEFT, padx=6)
+        self.service_badge.pack(side=tk.LEFT, padx=4)
         self.service_status_lbl = tk.Label(
             self.service_badge,
-            text="● SERVICE: CHECKING",
+            text="● DAEMON: CHECKING",
             font=FONT_BODY_BOLD,
             fg=TEXT_MUTED,
             bg="#1E293B",
         )
         self.service_status_lbl.pack()
+
+        self.btn_toggle_daemon = ModernButton(
+            right_pills,
+            text="⏹  Stop Daemon",
+            bg_color="#331A24",
+            fg_color="#FDA4AF",
+            hover_color="#4C0519",
+            padx=10,
+            pady=4,
+            command=self._toggle_daemon,
+        )
+        self.btn_toggle_daemon.pack(side=tk.LEFT, padx=4)
 
         # Profile Status Badge
         self.profile_badge = tk.Frame(
@@ -1001,20 +1013,44 @@ class FaceSetupGUI:
                 active = False
 
             def apply():
+                self.daemon_active = active
                 if active:
                     self.service_badge.configure(bg=COLOR_EMERALD_BG)
                     self.service_status_lbl.configure(
                         text="● DAEMON: ACTIVE", fg=COLOR_EMERALD, bg=COLOR_EMERALD_BG
                     )
+                    self.btn_toggle_daemon.set_text("⏹  Stop Daemon")
+                    self.btn_toggle_daemon.set_colors("#4C0519", "#FDA4AF", "#E11D48")
                 else:
                     self.service_badge.configure(bg="#1E293B")
                     self.service_status_lbl.configure(
-                        text="○ DAEMON: IDLE", fg=TEXT_MUTED, bg="#1E293B"
+                        text="○ DAEMON: STOPPED", fg=TEXT_MUTED, bg="#1E293B"
                     )
+                    self.btn_toggle_daemon.set_text("▶  Start Daemon")
+                    self.btn_toggle_daemon.set_colors(COLOR_EMERALD_BG, COLOR_EMERALD, "#059669")
 
             self.root.after(0, apply)
 
         threading.Thread(target=check, daemon=True).start()
+
+    def _toggle_daemon(self):
+        """Start or stop the background auto-lock daemon service."""
+        is_active = getattr(self, "daemon_active", False)
+        action = "stop" if is_active else "start"
+        self.btn_toggle_daemon.set_text("⏳ Working...")
+        self.btn_toggle_daemon.set_state(tk.DISABLED)
+
+        def do_toggle():
+            try:
+                subprocess.run(["systemctl", "--user", action, "facelock-monitor"], check=False, timeout=5.0)
+                time.sleep(0.5)
+            except Exception as e:
+                logger.error("Failed to %s daemon: %s", action, e)
+            finally:
+                self.root.after(0, lambda: self.btn_toggle_daemon.set_state(tk.NORMAL))
+                self._update_daemon_status()
+
+        threading.Thread(target=do_toggle, daemon=True).start()
 
     def _restart_daemon(self):
         try:

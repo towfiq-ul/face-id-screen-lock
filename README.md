@@ -4,9 +4,9 @@
 
 # FaceLock
 
-A lightweight, all-in-one biometric security system with built-in **3D liveness detection, anti-spoofing, continuous auto-lock, and lock-screen auto-unlock (PAM)** for Linux. It continuously monitors your webcam while your session is active and automatically locks the screen when you step away. When locked, waking the screen activates FaceLock's built-in PAM authenticator to seamlessly unlock your desktop using your face — **completely self-contained with no external tools required**.
+A lightweight, all-in-one biometric security system with built-in **3D liveness detection, anti-spoofing, continuous auto-lock, and lock-screen auto-unlock (PAM)** for **Linux** and **macOS**. It continuously monitors your webcam while your session is active and automatically locks the screen when you step away. When locked on Linux, waking the screen activates FaceLock's built-in PAM authenticator to seamlessly unlock your desktop using your face — **completely self-contained with no external tools required**.
 
-Tested on **Ubuntu 24.04**, GNOME on X11 / Wayland, GDM.
+Tested on **Ubuntu 24.04** (GNOME on X11 / Wayland, GDM) and **macOS Sonoma / Sequoia** (Apple Silicon & Intel).
 
 ---
 
@@ -23,7 +23,7 @@ Tested on **Ubuntu 24.04**, GNOME on X11 / Wayland, GDM.
 
 ## 🚀 Install
 
-Install FaceLock system-wide in one command via `curl`:
+### Linux (Ubuntu / Debian / Fedora / Arch)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/towfiq-ul/face-id-screen-lock/master/install.sh | bash
@@ -34,6 +34,26 @@ The installer displays a branded banner with percentage progress bars:
 2. Symlinks `facelock-gui`, `facelock-enroll`, and `facelock-monitor` into `/usr/local/bin`.
 3. Installs and enables the `systemd --user` background service.
 4. Launches the **Face Setup GUI** wizard so you can enroll your face immediately.
+
+### macOS (Apple Silicon & Intel)
+
+1. Install prerequisites via Homebrew:
+   ```bash
+   brew install python@3.12 python-tk@3.12
+   ```
+
+2. Run the automated installer:
+   ```bash
+   ./install_macos.sh
+   # Or via Make:
+   make macos-install
+   ```
+
+The macOS installer:
+1. Creates an isolated environment at `~/.local/opt/facelock`.
+2. Symlinks commands into `/usr/local/bin` (or `/opt/homebrew/bin`).
+3. Configures a `launchd` LaunchAgent (`~/Library/LaunchAgents/com.facelock.monitor.plist`) to monitor presence in user sessions.
+4. *Camera Permission*: On first launch, macOS will prompt to grant Camera access to Terminal / Python. Confirm in **System Settings → Privacy & Security → Camera**.
 
 ---
 
@@ -92,6 +112,8 @@ Unlike basic face detectors that can be bypassed with a printed photo or phone s
 
 ## 🔄 Running as a Service
 
+### Linux (`systemd --user`)
+
 Control the background user daemon with `systemd`:
 
 ```bash
@@ -108,28 +130,57 @@ systemctl --user restart facelock-monitor
 journalctl --user -u facelock-monitor -f
 ```
 
+### macOS (`launchd`)
+
+The macOS background monitor daemon is managed via `launchd`:
+
+```bash
+# Load / Start the LaunchAgent
+launchctl load ~/Library/LaunchAgents/com.facelock.monitor.plist
+
+# Unload / Stop the LaunchAgent
+launchctl unload ~/Library/LaunchAgents/com.facelock.monitor.plist
+
+# Tail real-time service logs
+tail -f ~/Library/Logs/FaceLock/facelock-monitor.log
+```
+
 ---
 
 ## 📦 System-Wide Install & Uninstall
 
+### Linux
 From a local clone:
 
 ```bash
 sudo ./install.sh
 ```
 
-To remove everything installed by the installer:
+To remove everything installed by the Linux installer:
 
 ```bash
 sudo /opt/facelock/uninstall.sh
+```
+
+### macOS
+From a local clone:
+
+```bash
+make macos-install      # or ./install_macos.sh
+```
+
+To remove everything installed by the macOS installer:
+
+```bash
+make macos-uninstall    # or ~/.local/opt/facelock/uninstall.sh
 ```
 
 *(Your face profile and configuration at `~/.local/share/facelock/` and `~/.config/facelock/` are preserved during uninstallation).*
 
 ---
 
-## 🔐 Built-in Biometric Auto-Unlock (PAM)
-FaceLock includes its own native PAM authentication engine — **no third-party packages required**!
+## 🔐 Built-in Biometric Auto-Unlock (Linux PAM)
+FaceLock includes its own native PAM authentication engine for Linux — **no third-party packages required**!
 
 When your screen is locked (e.g. via <kbd>Super</kbd> + <kbd>L</kbd> or auto-lock timeout):
 1. Wake the lock screen (tap <kbd>Space</kbd>, <kbd>Enter</kbd>, or move mouse).
@@ -146,11 +197,13 @@ make pam-disable    # disable PAM unlock and revert to standard password
 
 *(You can also enable face authentication for terminal `sudo` via `sudo facelock-pam enable --sudo`).*
 
+> **Note on macOS**: On macOS, screen auto-lock when absent is fully supported out of the box via `MacOSBackend`. However, lock-screen auto-unlock is managed exclusively by Apple's Secure Enclave and `loginwindow` (Touch ID / Apple Watch).
+
 ---
 
 ## 🧪 Testing
 
-FaceLock includes a test suite covering configuration, camera buffers, platform session detection, anti-spoofing tracking, and GUI components:
+FaceLock includes a test suite covering configuration, camera buffers, Linux & macOS platform session detection, anti-spoofing tracking, and GUI components:
 
 ```bash
 make test
@@ -160,5 +213,5 @@ make test
 
 ## 🗺️ Scope & Roadmap
 
-- **Current**: Linux (GNOME/KDE on X11/Wayland with `logind`), up to 2 named biometric face profiles, RGB webcam, interactive GUI setup & calibration studio, anti-spoofing, native PAM auto-unlock.
-- **Future**: Dedicated IR camera support (`ir_camera_index`), Windows/macOS backend modules via `facelock.platform.base.Backend`.
+- **Current**: Linux (GNOME/KDE on X11/Wayland with `logind`), macOS (Sonoma/Sequoia on Intel & Apple Silicon via `MacOSBackend` and `launchd`), up to 2 named biometric face profiles, RGB webcam, interactive GUI setup & calibration studio, anti-spoofing, native Linux PAM auto-unlock.
+- **Future**: Dedicated IR camera support (`ir_camera_index`), Windows backend module via `facelock.platform.base.Backend`.

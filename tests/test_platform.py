@@ -3,8 +3,10 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
+from facelock.platform import get_backend
 from facelock.platform.base import Backend
 from facelock.platform.linux import LinuxBackend
+from facelock.platform.macos import MacOSBackend
 
 
 class TestPlatformLinux(unittest.TestCase):
@@ -68,6 +70,58 @@ class TestPlatformLinux(unittest.TestCase):
         backend = LinuxBackend()
         idle = backend._get_gnome_mutter_idle()
         self.assertEqual(idle, 12.5)
+
+
+class TestPlatformMacOS(unittest.TestCase):
+    def test_backend_subclass(self):
+        backend = MacOSBackend()
+        self.assertIsInstance(backend, Backend)
+
+    @patch("ctypes.cdll.LoadLibrary")
+    def test_lock_saclockscreen(self, mock_load):
+        mock_login = unittest.mock.MagicMock()
+        mock_load.return_value = mock_login
+        backend = MacOSBackend()
+        backend.lock()
+        mock_login.SACLockScreenImmediate.assert_called_once()
+
+    @patch("subprocess.run")
+    @patch("ctypes.cdll.LoadLibrary", side_effect=Exception("Not macOS"))
+    def test_lock_applescript_fallback(self, mock_load, mock_run):
+        mock_run.return_value = unittest.mock.MagicMock(returncode=0)
+        backend = MacOSBackend()
+        backend.lock()
+        mock_run.assert_called()
+        cmd = mock_run.call_args[0][0]
+        self.assertEqual(cmd[0], "osascript")
+
+    @patch("subprocess.check_output")
+    def test_is_locked_ioreg(self, mock_output):
+        mock_output.return_value = '  | |   "CGSSessionScreenIsLocked" = Yes\n'
+        backend = MacOSBackend()
+        self.assertTrue(backend.is_locked())
+
+        mock_output.return_value = '  | |   "SomeOtherProp" = 1\n'
+        self.assertFalse(backend.is_locked())
+
+    @patch("subprocess.check_output")
+    def test_get_idle_seconds_ioreg(self, mock_output):
+        mock_output.return_value = '  | |   "HIDIdleTime" = 5000000000\n'
+        backend = MacOSBackend()
+        idle = backend.get_idle_seconds()
+        self.assertAlmostEqual(idle, 5.0)
+
+
+class TestGetBackend(unittest.TestCase):
+    @patch("sys.platform", "darwin")
+    def test_get_backend_darwin(self):
+        backend = get_backend()
+        self.assertIsInstance(backend, MacOSBackend)
+
+    @patch("sys.platform", "linux")
+    def test_get_backend_linux(self):
+        backend = get_backend()
+        self.assertIsInstance(backend, LinuxBackend)
 
 
 if __name__ == "__main__":

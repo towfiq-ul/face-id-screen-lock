@@ -4,7 +4,7 @@
 
 # FaceLock
 
-A lightweight, all-in-one biometric security system with built-in **3D liveness detection, anti-spoofing, continuous auto-lock, and lock-screen auto-unlock (PAM)** for Linux. It continuously monitors your webcam while your session is active and automatically locks the screen when you step away. When locked, waking the screen activates FaceLock's built-in PAM authenticator to seamlessly unlock your desktop using your face — **completely self-contained with no external tools (like Howdy) required**.
+A lightweight, all-in-one biometric security system with built-in **3D liveness detection, anti-spoofing, continuous auto-lock, and lock-screen auto-unlock (PAM)** for Linux. It continuously monitors your webcam while your session is active and automatically locks the screen when you step away. When locked, waking the screen activates FaceLock's built-in PAM authenticator to seamlessly unlock your desktop using your face — **completely self-contained with no external tools required**.
 
 Tested on **Ubuntu 24.04**, GNOME on X11 / Wayland, GDM.
 
@@ -16,7 +16,7 @@ Tested on **Ubuntu 24.04**, GNOME on X11 / Wayland, GDM.
 - 👁️ **3D Liveness & Anti-Spoofing**: Uses 3D head-pose estimation (`cv2.solvePnP`) to track involuntary human micro-movements and posture drift, rejecting static printed photos and screen replays.
 - 🖥️ **Interactive Graphical Setup Wizard (`facelock-gui`)**: Live webcam HUD with cyber-bracketed face boxes, facial landmarks, 3D pose angles, step-by-step guided captures, and real-time verification testing.
 - ⚡ **Zero Heavy Build Toolchains**: Powered by OpenCV's bundled YuNet (detector) and SFace (recognizer) ONNX models — no `dlib`, `cmake`, or C++ compilation required.
-- 🤝 **Camera-Friendly Coexistence**: Releases the webcam immediately upon session lock so PAM unlockers (like Howdy) have unobstructed hardware access.
+- 🤝 **Camera-Friendly Coexistence**: Releases the webcam immediately upon session lock so PAM unlockers have unobstructed hardware access.
 - 🚀 **One-Command Installation**: Simple curl installer that sets up `/opt/facelock`, command symlinks, and a `systemd --user` service.
 
 ---
@@ -129,7 +129,7 @@ sudo /opt/facelock/uninstall.sh
 ---
 
 ## 🔐 Built-in Biometric Auto-Unlock (PAM)
-FaceLock includes its own native PAM authentication engine — **no Howdy or third-party packages required**!
+FaceLock includes its own native PAM authentication engine — **no third-party packages required**!
 
 When your screen is locked (e.g. via <kbd>Super</kbd> + <kbd>L</kbd> or auto-lock timeout):
 1. Wake the lock screen (tap <kbd>Space</kbd>, <kbd>Enter</kbd>, or move mouse).

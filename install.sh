@@ -108,7 +108,11 @@ fi
 
 cleanup() {
     if [[ "$CLEANUP_REPO" = true && -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
-        rm -rf "$TMP_DIR"
+        if [[ -n "${SUDO:-}" ]] && command -v sudo >/dev/null 2>&1; then
+            $SUDO rm -rf "$TMP_DIR" 2>/dev/null || rm -rf "$TMP_DIR" 2>/dev/null || true
+        else
+            rm -rf "$TMP_DIR" 2>/dev/null || true
+        fi
     fi
 }
 trap cleanup EXIT

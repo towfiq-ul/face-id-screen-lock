@@ -212,7 +212,6 @@ class TestGUI(unittest.TestCase):
 
         # Check buttons and description
         self.assertIsNotNone(gui.btn_top_settings)
-        self.assertIsNotNone(gui.btn_daemon_config)
         desc = gui._get_daemon_desc_text()
         self.assertIn("Idle: 120s", desc)
         self.assertIn("Window: 30s", desc)

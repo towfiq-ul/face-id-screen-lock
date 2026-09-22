@@ -1,11 +1,11 @@
 """FaceLock Modern Graphical Setup & Biometric Control Center.
 
-Modern dark cyberpunk/glassmorphic design system:
-- High-contrast dark surfaces with neon cyan and emerald accents.
-- Optical sensor HUD viewport with dynamic targeting reticles and telemetry.
-- 8-Step interactive enrollment stepper with visual angle badges.
-- Real-time biometric meters (Confidence, Liveness variance, Match cosine).
-- Systemd daemon service control & status integration.
+Modern, soothing design system:
+- Glare-free serene slate & obsidian surfaces with calming azure and mint accents.
+- Smooth camera HUD viewport with unobtrusive face guidance reticle.
+- 7-Step guided biometric enrollment stepper with reassuring prompts.
+- Real-time biometric meters with smooth rounded progress tracks.
+- Auto-lock daemon service controls and fine-grained security configuration.
 """
 
 from __future__ import annotations
@@ -41,35 +41,113 @@ ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 LOGO_PATH = ASSETS_DIR / "logo_small.png"
 SPLASH_BANNER_PATH = ASSETS_DIR / "splash_banner.png"
 
-# Design System Palette (Deep Space Glass & Cyber Neon)
-BG_APP = "#070B14"               # Deepest background
-BG_SURFACE = "#0E1726"           # Card surface
-BG_SURFACE_ALT = "#142136"       # Elevated secondary surface
-BORDER_COLOR = "#1D2C47"         # Subtle card border
-BORDER_ACTIVE = "#00F0FF"        # Focused cyan border
 
-COLOR_CYAN = "#00F0FF"           # Primary brand / interactive
-COLOR_CYAN_DIM = "#007A8A"       # Dim cyan for borders/fills
-COLOR_EMERALD = "#10B981"        # Success / live match
-COLOR_EMERALD_BG = "#064E3B"     # Success badge bg
-COLOR_AMBER = "#F59E0B"          # Warning / attention
-COLOR_ROSE = "#F43F5E"           # Danger / error / spoof
-COLOR_ROSE_BG = "#4C0519"        # Danger badge bg
+def _detect_font_family() -> str:
+    try:
+        import tkinter.font as tkfont
+        root = tk._default_root
+        should_destroy = False
+        if root is None:
+            root = tk.Tk()
+            root.withdraw()
+            should_destroy = True
+        fams = set(tkfont.families(root))
+        if should_destroy:
+            root.destroy()
+        for preferred in ("DejaVu Sans", "Liberation Sans", "Noto Sans", "Ubuntu", "Segoe UI", "Cantarell"):
+            if preferred in fams:
+                return preferred
+    except Exception:
+        pass
+    return "Helvetica"
 
-TEXT_MAIN = "#F8FAFC"            # High contrast text
-TEXT_MUTED = "#94A3B8"           # Secondary body text
-TEXT_SUBTLE = "#64748B"          # Dim captions / metadata
 
-FONT_TITLE = ("Helvetica", 14, "bold")
-FONT_SUBTITLE = ("Helvetica", 9)
-FONT_SECTION = ("Helvetica", 10, "bold")
-FONT_BODY = ("Helvetica", 9)
-FONT_BODY_BOLD = ("Helvetica", 9, "bold")
-FONT_METRIC = ("Helvetica", 11, "bold")
+FONT_FAMILY = _detect_font_family()
+FONT_TITLE = (FONT_FAMILY, 13, "bold")
+FONT_SUBTITLE = (FONT_FAMILY, 9)
+FONT_SECTION = (FONT_FAMILY, 10, "bold")
+FONT_BODY = (FONT_FAMILY, 9)
+FONT_BODY_BOLD = (FONT_FAMILY, 9, "bold")
+FONT_METRIC = (FONT_FAMILY, 11, "bold")
+FONT_CHIP = (FONT_FAMILY, 8, "bold")
+FONT_CAPTION = (FONT_FAMILY, 8)
+FONT_SMALL = (FONT_FAMILY, 7)
+
+# Design System Palette: Serene Obsidian & Soft Azure (Modern, Soothing, Glare-Free)
+BG_APP = "#0D1117"               # Calming dark slate canvas
+BG_SURFACE = "#151C28"           # Soothing card surface
+BG_SURFACE_ALT = "#1E2738"       # Elevated secondary surface / input wells
+BG_SURFACE_HOVER = "#2D3B55"     # Distinct, soothing interactive hover
+BORDER_COLOR = "#222D3E"         # Subtle, gentle card boundary
+BORDER_ACTIVE = "#38BDF8"        # Soft sky blue focus boundary
+
+# Calming Accents
+COLOR_SKY = "#38BDF8"            # Primary brand / soothing azure sky
+COLOR_SKY_HOVER = "#7DD3FC"      # Soft hover sky
+COLOR_SKY_DIM = "#0284C7"        # Dim azure for borders/fills
+COLOR_CYAN = COLOR_SKY           # Alias for compatibility with existing references
+COLOR_CYAN_DIM = COLOR_SKY_DIM   # Alias for compatibility
+
+COLOR_EMERALD = "#34D399"        # Soft mint/emerald for success & live match
+COLOR_EMERALD_BG = "#064E3B"     # Soft muted deep green badge background
+COLOR_EMERALD_TEXT = "#A7F3D0"   # Light mint text for badges
+
+COLOR_AMBER = "#FBBF24"          # Warm soothing honey/amber for warnings & pause
+COLOR_AMBER_BG = "#451A03"       # Muted amber badge bg
+COLOR_AMBER_TEXT = "#FDE68A"
+
+COLOR_ROSE = "#FB7185"           # Gentle soft rose/coral for spoof/errors
+COLOR_ROSE_BG = "#4C0519"        # Muted deep rose badge background
+COLOR_ROSE_TEXT = "#FECDD3"
+
+TEXT_MAIN = "#F1F5F9"            # Soft crisp off-white (prevents high-contrast glare)
+TEXT_MUTED = "#94A3B8"           # Soothing secondary text (slate-400)
+TEXT_SUBTLE = "#64748B"          # Dim tertiary metadata (slate-500)
+
+# Soothing OpenCV Camera Overlay Colors (BGR)
+BGR_SKY = (248, 189, 56)         # #38BDF8 in BGR
+BGR_MINT = (153, 211, 52)        # #34D399 in BGR
+BGR_CORAL = (133, 113, 251)      # #FB7185 in BGR
+BGR_AMBER = (36, 191, 251)       # #FBBF24 in BGR
+BGR_BG_PILL = (36, 28, 21)       # Dark slate background in BGR (#151C24)
+BGR_BG_MINT = (59, 78, 6)        # Deep emerald background in BGR (#064E3B)
+BGR_BG_ROSE = (25, 5, 76)        # Deep rose background in BGR (#4C0519)
+
+
+def draw_hud_pill(
+    frame: np.ndarray,
+    text: str,
+    x: int,
+    y: int,
+    fg: tuple[int, int, int] = BGR_SKY,
+    bg: tuple[int, int, int] = BGR_BG_PILL,
+    font_scale: float = 0.52,
+) -> None:
+    """Draw a smooth semi-transparent pill badge with text for clean, soothing video telemetry."""
+    font = cv2.FONT_HERSHEY_DUPLEX
+    thickness = 1
+    (tw, th), bl = cv2.getTextSize(text, font, font_scale, thickness)
+    pad_x, pad_y = 10, 5
+    fh, fw = frame.shape[:2]
+
+    x1 = max(0, x)
+    y1 = max(0, y - th - pad_y)
+    x2 = min(fw, x1 + tw + pad_x * 2)
+    y2 = min(fh, y + pad_y + 2)
+
+    if x2 - x1 > 4 and y2 - y1 > 4:
+        sub = frame[y1:y2, x1:x2]
+        rect = np.full_like(sub, bg)
+        cv2.addWeighted(rect, 0.84, sub, 0.16, 0, sub)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), fg, 1, cv2.LINE_AA)
+
+    tx = min(fw - tw - 4, x1 + pad_x)
+    ty = min(fh - 4, max(th + 2, y))
+    cv2.putText(frame, text, (tx, ty), font, font_scale, fg, thickness, cv2.LINE_AA)
 
 
 class ModernButton(tk.Button):
-    """Custom flat styled button with smooth hover state."""
+    """Custom flat styled button with smooth, responsive hover and disabled states."""
 
     def __init__(
         self,
@@ -77,8 +155,11 @@ class ModernButton(tk.Button):
         text: str,
         command=None,
         bg_color=COLOR_CYAN,
-        fg_color="#000000",
-        hover_color="#38F4FF",
+        fg_color="#0B1320",
+        hover_color="#7DD3FC",
+        hover_fg=None,
+        disabled_bg=BG_SURFACE_ALT,
+        disabled_fg="#94A3B8",
         font=FONT_BODY_BOLD,
         state=tk.NORMAL,
         padx: int = 14,
@@ -88,56 +169,93 @@ class ModernButton(tk.Button):
         self.bg_color = bg_color
         self.fg_color = fg_color
         self.hover_color = hover_color
+        self.hover_fg = hover_fg if hover_fg is not None else fg_color
+        self.disabled_bg = disabled_bg
+        self.disabled_fg = disabled_fg
+        self._is_hovered = False
+
+        initial_bg = self.disabled_bg if state == tk.DISABLED else bg_color
+        initial_fg = self.disabled_fg if state == tk.DISABLED else fg_color
+
         super().__init__(
             parent,
             text=text,
             command=command,
-            bg=bg_color,
-            fg=fg_color,
+            bg=initial_bg,
+            fg=initial_fg,
+            disabledforeground=self.disabled_fg,
             activebackground=hover_color,
-            activeforeground=fg_color,
+            activeforeground=self.hover_fg,
             font=font,
             relief=tk.FLAT,
+            overrelief=tk.FLAT,
             bd=0,
             highlightthickness=0,
-            cursor="hand2",
+            cursor="hand2" if state == tk.NORMAL else "arrow",
             padx=padx,
             pady=pady,
             state=state,
             **kwargs,
         )
+
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
 
-    def _on_enter(self, event):
-        if str(self["state"]) == tk.NORMAL:
-            self.configure(bg=self.hover_color)
+    def _on_enter(self, event=None):
+        self._is_hovered = True
+        if str(self["state"]) != tk.DISABLED:
+            self.configure(
+                bg=self.hover_color,
+                fg=self.hover_fg,
+                cursor="hand2",
+            )
 
-    def _on_leave(self, event):
-        if str(self["state"]) == tk.NORMAL:
-            self.configure(bg=self.bg_color)
+    def _on_leave(self, event=None):
+        self._is_hovered = False
+        if str(self["state"]) != tk.DISABLED:
+            self.configure(
+                bg=self.bg_color,
+                fg=self.fg_color,
+            )
 
     def set_text(self, text: str):
         self.configure(text=text)
 
-    def set_colors(self, bg_color: str, fg_color: str, hover_color: str):
+    def set_colors(
+        self,
+        bg_color: str,
+        fg_color: str,
+        hover_color: str,
+        hover_fg: str | None = None,
+    ):
         self.bg_color = bg_color
         self.fg_color = fg_color
         self.hover_color = hover_color
-        if str(self["state"]) == tk.NORMAL:
-            self.configure(
-                bg=bg_color,
-                fg=fg_color,
-                activebackground=hover_color,
-                activeforeground=fg_color,
-            )
+        self.hover_fg = hover_fg if hover_fg is not None else fg_color
+        self.configure(
+            activebackground=hover_color,
+            activeforeground=self.hover_fg,
+        )
+        if str(self["state"]) != tk.DISABLED:
+            if self._is_hovered:
+                self.configure(bg=self.hover_color, fg=self.hover_fg)
+            else:
+                self.configure(bg=self.bg_color, fg=self.fg_color)
 
     def set_state(self, state):
         self.configure(state=state)
         if state == tk.DISABLED:
-            self.configure(bg=BG_SURFACE_ALT, fg=TEXT_SUBTLE, cursor="arrow")
+            self.configure(
+                bg=self.disabled_bg,
+                disabledforeground=self.disabled_fg,
+                cursor="arrow",
+            )
         else:
-            self.configure(bg=self.bg_color, fg=self.fg_color, cursor="hand2")
+            self.configure(cursor="hand2")
+            if self._is_hovered:
+                self.configure(bg=self.hover_color, fg=self.hover_fg)
+            else:
+                self.configure(bg=self.bg_color, fg=self.fg_color)
 
 
 class MetricMeter(tk.Frame):
@@ -149,7 +267,7 @@ class MetricMeter(tk.Frame):
         self.unit = unit
 
         header = tk.Frame(self, bg=BG_SURFACE)
-        header.pack(fill=tk.X, pady=(0, 2))
+        header.pack(fill=tk.X, pady=(0, 4))
 
         self.title_lbl = tk.Label(header, text=title, font=FONT_BODY, fg=TEXT_MUTED, bg=BG_SURFACE)
         self.title_lbl.pack(side=tk.LEFT)
@@ -158,23 +276,59 @@ class MetricMeter(tk.Frame):
         self.val_lbl.pack(side=tk.RIGHT)
 
         self.canvas_w = 320
-        self.canvas_h = 6
+        self.canvas_h = 7
         self.canvas = tk.Canvas(
             self,
             width=self.canvas_w,
             height=self.canvas_h,
-            bg=BG_SURFACE_ALT,
+            bg=BG_SURFACE,
             highlightthickness=0,
         )
         self.canvas.pack(fill=tk.X)
+        self._last_val = 0.0
+        self._last_color = COLOR_CYAN
+        self._draw_track()
+        self.canvas.bind("<Configure>", self._on_canvas_resize)
 
-    def set_value(self, val: float, display_text: str | None = None, color: str = COLOR_CYAN):
-        ratio = max(0.0, min(1.0, val / self.max_val if self.max_val > 0 else 0.0))
+    def _draw_track(self):
+        self.canvas.delete("track")
+        y = self.canvas_h // 2
+        r = self.canvas_h // 2
+        self.canvas.create_line(
+            r, y, max(r, self.canvas_w - r), y,
+            width=self.canvas_h,
+            capstyle=tk.ROUND,
+            fill=BG_SURFACE_ALT,
+            tags="track",
+        )
+
+    def _on_canvas_resize(self, event):
+        if event.width > 20:
+            self.canvas_w = event.width
+            self._draw_track()
+            self._redraw_bar()
+
+    def _redraw_bar(self):
+        ratio = max(0.0, min(1.0, self._last_val / self.max_val if self.max_val > 0 else 0.0))
+        y = self.canvas_h // 2
+        r = self.canvas_h // 2
         fill_w = int(ratio * self.canvas_w)
         self.canvas.delete("bar")
-        if fill_w > 0:
-            self.canvas.create_rectangle(0, 0, fill_w, self.canvas_h, fill=color, width=0, tags="bar")
+        if fill_w >= r:
+            self.canvas.create_line(
+                r, y, max(r, fill_w - r), y,
+                width=self.canvas_h,
+                capstyle=tk.ROUND,
+                fill=self._last_color,
+                tags="bar",
+            )
 
+    def set_value(self, val: float, display_text: str | None = None, color: str = COLOR_CYAN):
+        self._last_val = val
+        self._last_color = color
+        self._redraw_bar()
+
+        ratio = max(0.0, min(1.0, val / self.max_val if self.max_val > 0 else 0.0))
         if display_text:
             self.val_lbl.configure(text=display_text, fg=color)
         else:
@@ -244,14 +398,14 @@ def center_window_on_monitor(root: tk.Tk | tk.Toplevel, width: int, height: int)
 
 
 class SettingsDialog(tk.Toplevel):
-    """Modern Dark Cyberpunk FaceLock Security & Auto-Lock Configuration Dialog."""
+    """Modern, soothing FaceLock Security & Auto-Lock Configuration Dialog."""
 
     def __init__(self, parent: tk.Tk | tk.Toplevel, config: cfg.Config, on_save_callback=None):
         super().__init__(parent)
         self.config = config
         self.on_save_callback = on_save_callback
 
-        self.title("FaceLock Configuration & Security Settings")
+        self.title("FaceLock — Configuration & Security Settings")
         self.configure(bg=BG_APP)
         self.transient(parent)
 
@@ -262,7 +416,7 @@ class SettingsDialog(tk.Toplevel):
             except Exception:
                 pass
 
-        dialog_w, dialog_h = 600, 680
+        dialog_w, dialog_h = 640, 720
         center_window_on_monitor(self, dialog_w, dialog_h)
 
         self._build_ui()
@@ -270,7 +424,7 @@ class SettingsDialog(tk.Toplevel):
 
     def _build_ui(self):
         # Header bar
-        header_bar = tk.Frame(self, bg=BG_SURFACE, height=56, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        header_bar = tk.Frame(self, bg=BG_SURFACE, height=58, highlightthickness=1, highlightbackground=BORDER_COLOR)
         header_bar.pack(fill=tk.X, side=tk.TOP)
         header_bar.pack_propagate(False)
 
@@ -279,7 +433,7 @@ class SettingsDialog(tk.Toplevel):
 
         tk.Label(
             h_inner,
-            text="⚙️  SECURITY & AUTO-LOCK CONFIGURATION",
+            text="⚙️  Security & Auto-Lock Preferences",
             font=FONT_TITLE,
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
@@ -305,8 +459,9 @@ class SettingsDialog(tk.Toplevel):
             b_inner,
             text="💾  Save & Apply",
             bg_color=COLOR_CYAN,
-            fg_color="#000000",
-            hover_color="#38F4FF",
+            fg_color="#0B1320",
+            hover_color="#7DD3FC",
+            hover_fg="#0B1320",
             padx=16,
             pady=6,
             command=self._save,
@@ -318,7 +473,8 @@ class SettingsDialog(tk.Toplevel):
             text="Cancel",
             bg_color=BG_SURFACE_ALT,
             fg_color=TEXT_MAIN,
-            hover_color="#243452",
+            hover_color=BG_SURFACE_HOVER,
+            hover_fg="#FFFFFF",
             padx=14,
             pady=6,
             command=self.destroy,
@@ -516,7 +672,7 @@ class SettingsDialog(tk.Toplevel):
             troughcolor=BG_SURFACE_ALT,
             highlightthickness=0,
             activebackground=COLOR_CYAN,
-            font=("Helvetica", 8),
+            font=FONT_CAPTION,
             showvalue=False,
         )
         scale_slider.pack(fill=tk.X, pady=(2, 2))
@@ -623,18 +779,16 @@ class SettingsDialog(tk.Toplevel):
         tk.Label(row, text=label_text, font=FONT_BODY_BOLD, fg=TEXT_MAIN, bg=BG_SURFACE).pack(side=tk.LEFT)
 
         for p_lbl, p_val in presets:
-            btn = tk.Button(
+            btn = ModernButton(
                 row,
                 text=p_lbl,
-                font=("Helvetica", 7, "bold"),
-                bg=BORDER_COLOR,
-                fg=COLOR_CYAN,
-                activebackground=COLOR_CYAN,
-                activeforeground="#000",
-                relief=tk.FLAT,
-                padx=5,
-                pady=1,
-                cursor="hand2",
+                font=FONT_CHIP,
+                bg_color=BG_SURFACE_ALT,
+                fg_color=COLOR_CYAN,
+                hover_color=BG_SURFACE_HOVER,
+                hover_fg="#7DD3FC",
+                padx=6,
+                pady=2,
                 command=lambda v=p_val, tv=text_var: tv.set(str(v)),
             )
             btn.pack(side=tk.RIGHT, padx=2)
@@ -735,7 +889,7 @@ class SplashScreen:
             except Exception as e:
                 logger.debug("Failed to set splash icon: %s", e)
 
-        width, height = 620, 440
+        width, height = 605, 430
         center_window_on_monitor(self.root, width, height)
 
         # Card container with glowing cyan accent border
@@ -763,7 +917,7 @@ class SplashScreen:
         tk.Label(
             top_row,
             text="FACELOCK BIOMETRICS",
-            font=("Helvetica", 13, "bold"),
+            font=FONT_TITLE,
             fg=COLOR_CYAN,
             bg=BG_APP,
         ).pack(side=tk.LEFT)
@@ -771,7 +925,7 @@ class SplashScreen:
         self.percent_lbl = tk.Label(
             top_row,
             text="0%",
-            font=("Helvetica", 13, "bold"),
+            font=FONT_TITLE,
             fg=COLOR_CYAN,
             bg=BG_APP,
         )
@@ -786,29 +940,47 @@ class SplashScreen:
         )
         self.status_lbl.pack(anchor="w", pady=(2, 10))
 
-        # Progress bar
+        # Progress bar with rounded pill track
         self.canvas_w = 570
         self.canvas_h = 8
         self.progress_canvas = tk.Canvas(
             info_box,
             width=self.canvas_w,
             height=self.canvas_h,
-            bg=BG_SURFACE,
-            highlightthickness=1,
-            highlightbackground="#1E293B",
+            bg=BG_APP,
+            highlightthickness=0,
         )
         self.progress_canvas.pack(fill=tk.X)
+        self._draw_track()
 
         threading.Thread(target=self._run_init_steps, daemon=True).start()
+
+    def _draw_track(self):
+        self.progress_canvas.delete("track")
+        y = self.canvas_h // 2
+        r = self.canvas_h // 2
+        self.progress_canvas.create_line(
+            r, y, max(r, self.canvas_w - r), y,
+            width=self.canvas_h,
+            capstyle=tk.ROUND,
+            fill=BG_SURFACE_ALT,
+            tags="track",
+        )
 
     def set_progress(self, percent: int, text: str):
         self.status_lbl.configure(text=text)
         self.percent_lbl.configure(text=f"{percent}%")
         fill_w = int((percent / 100.0) * self.canvas_w)
+        y = self.canvas_h // 2
+        r = self.canvas_h // 2
         self.progress_canvas.delete("bar")
-        if fill_w > 0:
-            self.progress_canvas.create_rectangle(
-                0, 0, fill_w, self.canvas_h, fill=COLOR_CYAN, width=0, tags="bar"
+        if fill_w >= r:
+            self.progress_canvas.create_line(
+                r, y, max(r, fill_w - r), y,
+                width=self.canvas_h,
+                capstyle=tk.ROUND,
+                fill=COLOR_CYAN,
+                tags="bar",
             )
         self.root.update_idletasks()
 
@@ -818,7 +990,7 @@ class SplashScreen:
             (45, "Testing optical camera device..."),
             (70, "Verifying YuNet detection neural net..."),
             (90, "Verifying SFace recognition neural net..."),
-            (100, "Starting FaceLock Studio..."),
+            (100, "Starting FaceLock ..."),
         ]
 
         time.sleep(0.25)
@@ -852,16 +1024,16 @@ class SplashScreen:
 
 
 class FaceSetupGUI:
-    """Modern Dark Cyberpunk FaceLock Setup Studio and Biometric Manager."""
+    """Modern, soothing FaceLock Setup Studio and Biometric Manager."""
 
     POSE_PROMPTS = [
-        ("LOOK STRAIGHT", "Center your face directly into the camera guide", "CENTER", 0.0),
-        ("TILT UP", "Tilt your chin UP slightly and hold steady", "UP", 10.0),
-        ("TILT DOWN", "Tilt your head DOWN slightly and hold steady", "DOWN", -10.0),
-        ("TURN LEFT", "Turn your head to the LEFT and hold steady", "LEFT", -15.0),
-        ("TURN RIGHT", "Turn your head to the RIGHT and hold steady", "RIGHT", 15.0),
-        ("BLINK TO VERIFY", "Blink your eyes to complete live biometric enrollment", "BLINK", 0.0),
-        ("SMILE TO VERIFY", "Smile or show teeth to complete facial muscle dynamic verification", "SMILE", 0.0),
+        ("Look Straight", "Look directly into the camera in your natural resting posture", "CENTER", 0.0),
+        ("Tilt Chin Up", "Gently tilt your chin upward slightly and hold steady", "UP", 10.0),
+        ("Tilt Head Down", "Gently tilt your head downward slightly and hold steady", "DOWN", -10.0),
+        ("Turn Left", "Turn your head gently to your left and hold steady", "LEFT", -15.0),
+        ("Turn Right", "Turn your head gently to your right and hold steady", "RIGHT", 15.0),
+        ("Blink to Verify", "Blink your eyes naturally to confirm live presence", "BLINK", 0.0),
+        ("Smile to Verify", "Smile gently to confirm dynamic facial muscle movement", "SMILE", 0.0),
     ]
 
     def __init__(self, config: cfg.Config, engine: FaceEngine):
@@ -878,10 +1050,10 @@ class FaceSetupGUI:
         self.blink_steady_count = 0
 
         self.root = tk.Tk(className="facelock")
-        self.root.title("FaceLock Studio — Biometric Face Setup")
+        self.root.title("FaceLock — Biometric Face Setup")
         self.root.configure(bg=BG_APP)
-        self.root.minsize(1020, 680)
-        center_window_on_monitor(self.root, 1120, 760)
+        self.root.minsize(1120, 740)
+        center_window_on_monitor(self.root, 1280, 860)
 
         if LOGO_PATH.exists():
             try:
@@ -948,15 +1120,15 @@ class FaceSetupGUI:
 
         tk.Label(
             title_col,
-            text="FACELOCK STUDIO",
-            font=("Helvetica", 14, "bold"),
+            text="FACELOCK",
+            font=FONT_TITLE,
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
         ).pack(anchor="w")
 
         tk.Label(
             title_col,
-            text="Biometric Authentication & Anti-Spoofing Center",
+            text="Intelligent Biometric Face Recognition & Auto-Lock",
             font=FONT_SUBTITLE,
             fg=TEXT_MUTED,
             bg=BG_SURFACE,
@@ -978,7 +1150,8 @@ class FaceSetupGUI:
             text="🎯  Calibrate",
             bg_color=BG_SURFACE_ALT,
             fg_color=COLOR_CYAN,
-            hover_color="#243452",
+            hover_color=BG_SURFACE_HOVER,
+            hover_fg="#7DD3FC",
             padx=10,
             pady=4,
             command=self._launch_calibration,
@@ -991,7 +1164,8 @@ class FaceSetupGUI:
             text="⚙️  Settings",
             bg_color=BG_SURFACE_ALT,
             fg_color=COLOR_CYAN,
-            hover_color="#243452",
+            hover_color=BG_SURFACE_HOVER,
+            hover_fg="#7DD3FC",
             padx=10,
             pady=4,
             command=self._open_settings_dialog,
@@ -999,23 +1173,24 @@ class FaceSetupGUI:
         self.btn_top_settings.pack(side=tk.LEFT, padx=6)
 
         # Service Status Badge & Control
-        self.service_badge = tk.Frame(right_pills, bg="#1E293B", padx=10, pady=4)
+        self.service_badge = tk.Frame(right_pills, bg=BG_SURFACE_ALT, padx=10, pady=4)
         self.service_badge.pack(side=tk.LEFT, padx=4)
         self.service_status_lbl = tk.Label(
             self.service_badge,
             text="● DAEMON: CHECKING",
             font=FONT_BODY_BOLD,
             fg=TEXT_MUTED,
-            bg="#1E293B",
+            bg=BG_SURFACE_ALT,
         )
         self.service_status_lbl.pack()
 
         self.btn_toggle_daemon = ModernButton(
             right_pills,
             text="⏹  Stop Daemon",
-            bg_color="#331A24",
-            fg_color="#FDA4AF",
-            hover_color="#4C0519",
+            bg_color="#4C0519",
+            fg_color="#FECDD3",
+            hover_color="#881337",
+            hover_fg="#FFFFFF",
             padx=10,
             pady=4,
             command=self._toggle_daemon,
@@ -1052,7 +1227,7 @@ class FaceSetupGUI:
 
         tk.Label(
             viewport_bar,
-            text="OPTICAL SENSOR VIEWPORT",
+            text="CAMERA SENSOR FEED",
             font=FONT_SECTION,
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
@@ -1067,11 +1242,11 @@ class FaceSetupGUI:
         )
         self.fps_lbl.pack(side=tk.RIGHT)
 
-        self.canvas = tk.Canvas(left_card, bg="#040711", highlightthickness=0)
+        self.canvas = tk.Canvas(left_card, bg="#080C14", highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
         # Right Column: Setup & Biometrics Control Studio
-        right_card = tk.Frame(main_area, bg=BG_SURFACE, width=380, highlightthickness=1, highlightbackground=BORDER_COLOR)
+        right_card = tk.Frame(main_area, bg=BG_SURFACE, width=420, highlightthickness=1, highlightbackground=BORDER_COLOR)
         right_card.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
         right_card.pack_propagate(False)
 
@@ -1089,7 +1264,7 @@ class FaceSetupGUI:
                 self.stepper_frame,
                 text=str(i + 1),
                 width=3,
-                font=("Helvetica", 9, "bold"),
+                font=FONT_CHIP,
                 bg=BG_SURFACE_ALT,
                 fg=TEXT_MUTED,
                 pady=4,
@@ -1104,7 +1279,7 @@ class FaceSetupGUI:
         self.step_tag_lbl = tk.Label(
             self.guide_card,
             text=f"STEP 1 OF {len(self.POSE_PROMPTS)} • TARGET: CENTER",
-            font=("Helvetica", 8, "bold"),
+            font=FONT_CHIP,
             fg=COLOR_CYAN,
             bg=BG_SURFACE_ALT,
         )
@@ -1112,8 +1287,8 @@ class FaceSetupGUI:
 
         self.step_title_lbl = tk.Label(
             self.guide_card,
-            text="LOOK STRAIGHT",
-            font=("Helvetica", 11, "bold"),
+            text="Look Straight",
+            font=FONT_METRIC,
             fg=TEXT_MAIN,
             bg=BG_SURFACE_ALT,
         )
@@ -1125,7 +1300,7 @@ class FaceSetupGUI:
             font=FONT_BODY,
             fg=TEXT_MUTED,
             bg=BG_SURFACE_ALT,
-            wraplength=320,
+            wraplength=350,
             justify=tk.LEFT,
         )
         self.step_desc_lbl.pack(anchor="w")
@@ -1178,31 +1353,19 @@ class FaceSetupGUI:
         s_top.pack(fill=tk.X)
         tk.Label(s_top, text="Auto-Lock Daemon Service", font=FONT_BODY_BOLD, fg=TEXT_MAIN, bg=BG_SURFACE_ALT).pack(side=tk.LEFT)
 
-        self.btn_daemon_toggle = tk.Button(
+        self.btn_daemon_toggle = ModernButton(
             s_top,
             text="Restart Daemon",
-            font=("Helvetica", 8),
-            bg=BORDER_COLOR,
-            fg=TEXT_MAIN,
-            activebackground=COLOR_CYAN,
-            activeforeground="#000",
-            relief=tk.FLAT,
+            font=FONT_CAPTION,
+            bg_color="#222D3E",
+            fg_color=TEXT_MAIN,
+            hover_color="#334155",
+            hover_fg="#FFFFFF",
+            padx=8,
+            pady=3,
             command=self._restart_daemon,
         )
         self.btn_daemon_toggle.pack(side=tk.RIGHT)
-
-        self.btn_daemon_config = tk.Button(
-            s_top,
-            text="⚙️ Configure",
-            font=("Helvetica", 8),
-            bg=BORDER_COLOR,
-            fg=COLOR_CYAN,
-            activebackground=COLOR_CYAN,
-            activeforeground="#000",
-            relief=tk.FLAT,
-            command=self._open_settings_dialog,
-        )
-        self.btn_daemon_config.pack(side=tk.RIGHT, padx=(0, 6))
 
         self.daemon_desc_lbl = tk.Label(
             service_box,
@@ -1226,14 +1389,14 @@ class FaceSetupGUI:
         tk.Label(
             name_hdr,
             text="Profile Name:",
-            font=("Helvetica", 8, "bold"),
+            font=FONT_CHIP,
             fg=COLOR_CYAN,
             bg=BG_SURFACE,
         ).pack(side=tk.LEFT)
         tk.Label(
             name_hdr,
             text="(Optional • blank for unknown_1/2)",
-            font=("Helvetica", 7),
+            font=FONT_SMALL,
             fg=TEXT_MUTED,
             bg=BG_SURFACE,
         ).pack(side=tk.RIGHT)
@@ -1255,8 +1418,9 @@ class FaceSetupGUI:
             btn_area,
             text="▶  Start Face Enrollment",
             bg_color=COLOR_CYAN,
-            fg_color="#000000",
-            hover_color="#38F4FF",
+            fg_color="#0B1320",
+            hover_color="#7DD3FC",
+            hover_fg="#0B1320",
             command=self._toggle_enrollment,
         )
         self.btn_enroll.pack(fill=tk.X, pady=(0, 8))
@@ -1269,7 +1433,8 @@ class FaceSetupGUI:
             text="🔍  Test Match",
             bg_color=BG_SURFACE_ALT,
             fg_color=TEXT_MAIN,
-            hover_color="#243452",
+            hover_color=BG_SURFACE_HOVER,
+            hover_fg="#FFFFFF",
             command=self._toggle_testing,
         )
         self.btn_test.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
@@ -1278,8 +1443,11 @@ class FaceSetupGUI:
             row2,
             text="💾  Save Profile",
             bg_color=COLOR_EMERALD,
-            fg_color="#000000",
-            hover_color="#34D399",
+            fg_color="#0B1320",
+            hover_color="#6EE7B7",
+            hover_fg="#0B1320",
+            disabled_bg=BG_SURFACE_ALT,
+            disabled_fg="#94A3B8",
             state=tk.DISABLED,
             command=self._save_profile,
         )
@@ -1323,18 +1491,15 @@ class FaceSetupGUI:
                     bg=BG_SURFACE_ALT,
                 ).pack(side=tk.LEFT)
 
-                del_btn = tk.Button(
+                del_btn = ModernButton(
                     row,
                     text="🗑 Delete",
-                    font=("Helvetica", 8, "bold"),
-                    bg="#4C0519",
-                    fg="#F43F5E",
-                    activebackground="#F43F5E",
-                    activeforeground="#FFFFFF",
-                    relief=tk.FLAT,
-                    bd=0,
-                    cursor="hand2",
-                    padx=6,
+                    font=FONT_CHIP,
+                    bg_color="#4C0519",
+                    fg_color="#FECDD3",
+                    hover_color="#881337",
+                    hover_fg="#FFFFFF",
+                    padx=8,
                     pady=2,
                     command=lambda n=name: self._delete_profile_action(n),
                 )
@@ -1363,7 +1528,7 @@ class FaceSetupGUI:
         if self.is_enrolling:
             self.is_enrolling = False
             self.btn_enroll.set_text("▶  Resume Enrollment")
-            self.btn_enroll.set_colors(COLOR_CYAN, "#000", "#38F4FF")
+            self.btn_enroll.set_colors(COLOR_CYAN, "#0B1320", "#7DD3FC")
         else:
             if profiles.get_profile_count() >= profiles.MAX_PROFILES:
                 names_str = ", ".join(f"'{n}'" for n in profiles.get_profile_names())
@@ -1387,7 +1552,7 @@ class FaceSetupGUI:
             self.blink_steady_count = 0
             self.is_enrolling = True
             self.btn_enroll.set_text("⏸  Pause Enrollment")
-            self.btn_enroll.set_colors(COLOR_AMBER, "#000", "#FBBF24")
+            self.btn_enroll.set_colors(COLOR_AMBER, "#0B1320", "#FDE68A")
             self.pose_hold_count = 0
             self.cooldown_until = 0.0
             self._update_progress()
@@ -1405,7 +1570,7 @@ class FaceSetupGUI:
                 return
             self.is_enrolling = False
             self.btn_enroll.set_text("▶  Start Face Enrollment")
-            self.btn_enroll.set_colors(COLOR_CYAN, "#000", "#38F4FF")
+            self.btn_enroll.set_colors(COLOR_CYAN, "#0B1320", "#7DD3FC")
             self.is_testing = True
             self.test_challenge_blinks = 0
             self.liveness_tracker.blink_detector.reset()
@@ -1445,9 +1610,9 @@ class FaceSetupGUI:
 
         for i, pill in enumerate(self.step_pills):
             if i < count:
-                pill.configure(text="✓", bg=COLOR_EMERALD, fg="#000")
+                pill.configure(text="✓", bg=COLOR_EMERALD, fg="#0B1320")
             elif i == count:
-                pill.configure(text=str(i + 1), bg=COLOR_CYAN, fg="#000")
+                pill.configure(text=str(i + 1), bg=COLOR_CYAN, fg="#0B1320")
             else:
                 pill.configure(text=str(i + 1), bg=BG_SURFACE_ALT, fg=TEXT_MUTED)
 
@@ -1465,7 +1630,7 @@ class FaceSetupGUI:
             )
             self.is_enrolling = False
             self.btn_enroll.set_text("🔄  Re-Enroll Face")
-            self.btn_enroll.set_colors(COLOR_CYAN, "#000", "#38F4FF")
+            self.btn_enroll.set_colors(COLOR_CYAN, "#0B1320", "#7DD3FC")
             self.btn_save.set_state(tk.NORMAL)
 
     def _save_profile(self):
@@ -1579,14 +1744,14 @@ class FaceSetupGUI:
                         text="● DAEMON: ACTIVE", fg=COLOR_EMERALD, bg=COLOR_EMERALD_BG
                     )
                     self.btn_toggle_daemon.set_text("⏹  Stop Daemon")
-                    self.btn_toggle_daemon.set_colors("#4C0519", "#FDA4AF", "#E11D48")
+                    self.btn_toggle_daemon.set_colors("#4C0519", "#FECDD3", "#881337", "#FFFFFF")
                 else:
-                    self.service_badge.configure(bg="#1E293B")
+                    self.service_badge.configure(bg=BG_SURFACE_ALT)
                     self.service_status_lbl.configure(
-                        text="○ DAEMON: STOPPED", fg=TEXT_MUTED, bg="#1E293B"
+                        text="○ DAEMON: STOPPED", fg=TEXT_MUTED, bg=BG_SURFACE_ALT
                     )
                     self.btn_toggle_daemon.set_text("▶  Start Daemon")
-                    self.btn_toggle_daemon.set_colors(COLOR_EMERALD_BG, COLOR_EMERALD, "#059669")
+                    self.btn_toggle_daemon.set_colors(COLOR_EMERALD_BG, COLOR_EMERALD, "#047857", "#A7F3D0")
 
             self.root.after(0, apply)
 
@@ -1734,14 +1899,14 @@ class FaceSetupGUI:
                 # HUD Overlay drawing
                 x, y_box, bw, bh = box
                 if self.is_enrolling:
-                    color = (0, 230, 118) if direction_matched else (0, 240, 255)  # Emerald on match, Cyan otherwise
+                    color = BGR_MINT if direction_matched else BGR_SKY
                 elif self.is_testing:
-                    color = (0, 230, 118) if (is_live and live_tex) else (244, 63, 94)
+                    color = BGR_MINT if (is_live and live_tex) else BGR_CORAL
                 else:
-                    color = (0, 240, 255) if (is_live and live_tex) else (244, 63, 94)
+                    color = BGR_SKY if (is_live and live_tex) else BGR_CORAL
 
-                # Corner bracket reticle
-                cr = int(min(bw, bh) * 0.22)
+                # Sleek, soothing corner reticle
+                cr = int(min(bw, bh) * 0.18)
                 t = 2
                 cv2.line(frame, (x, y_box), (x + cr, y_box), color, t, cv2.LINE_AA)
                 cv2.line(frame, (x, y_box), (x, y_box + cr), color, t, cv2.LINE_AA)
@@ -1752,54 +1917,38 @@ class FaceSetupGUI:
                 cv2.line(frame, (x + bw, y_box + bh), (x + bw - cr, y_box + bh), color, t, cv2.LINE_AA)
                 cv2.line(frame, (x + bw, y_box + bh), (x + bw, y_box + bh - cr), color, t, cv2.LINE_AA)
 
-                # 5 Biometric Landmark Dots & Cranial Structure Lattice
-                re_pt = (int(landmarks[0]), int(landmarks[1]))
-                le_pt = (int(landmarks[2]), int(landmarks[3]))
-                no_pt = (int(landmarks[4]), int(landmarks[5]))
-                rm_pt = (int(landmarks[6]), int(landmarks[7]))
-                lm_pt = (int(landmarks[8]), int(landmarks[9]))
-
-                # Subtle structural geometry wireframe
-                wire_color = (0, 160, 190)
-                cv2.line(frame, re_pt, le_pt, wire_color, 1, cv2.LINE_AA)
-                cv2.line(frame, le_pt, no_pt, wire_color, 1, cv2.LINE_AA)
-                cv2.line(frame, no_pt, re_pt, wire_color, 1, cv2.LINE_AA)
-                cv2.line(frame, no_pt, rm_pt, wire_color, 1, cv2.LINE_AA)
-                cv2.line(frame, no_pt, lm_pt, wire_color, 1, cv2.LINE_AA)
-                cv2.line(frame, rm_pt, lm_pt, wire_color, 1, cv2.LINE_AA)
-
+                # Subtle biometric landmark accents (clean, gentle glowing dots)
                 for i in range(5):
                     lx, ly = int(landmarks[i * 2]), int(landmarks[i * 2 + 1])
-                    dot_color = (0, 230, 118) if (i < 2 and blink_state.is_blinking) else (0, 240, 255)
-                    cv2.circle(frame, (lx, ly), 3, dot_color, -1, cv2.LINE_AA)
+                    if i < 2 and blink_state.is_blinking:
+                        cv2.circle(frame, (lx, ly), 5, BGR_MINT, 1, cv2.LINE_AA)
+                        cv2.circle(frame, (lx, ly), 2, BGR_MINT, -1, cv2.LINE_AA)
+                    else:
+                        cv2.circle(frame, (lx, ly), 2, color, -1, cv2.LINE_AA)
 
                 # Pose HUD pill in top-left of video
                 if pose is not None:
                     p, y, r = pose
-                    blinks_info = f" • BLINKS:{blink_state.blink_count}"
-                    hud_pose = f"P:{p:+.0f}° Y:{y:+.0f}° [{current_dir}]{blinks_info}"
-                    cv2.putText(
+                    blinks_info = f" • Blinks: {blink_state.blink_count}" if blink_state.blink_count > 0 else ""
+                    hud_pose = f"Pose: [{current_dir}]{blinks_info}"
+                    draw_hud_pill(
                         frame,
                         hud_pose,
-                        (x, max(20, y_box - 10)),
-                        cv2.FONT_HERSHEY_DUPLEX,
-                        0.55,
-                        (0, 240, 255),
-                        1,
-                        cv2.LINE_AA,
+                        x=x,
+                        y=max(22, y_box - 10),
+                        fg=BGR_SKY,
+                        bg=BGR_BG_PILL,
                     )
 
                 # Visual blink flash badge
                 if blink_state.is_blinking:
-                    cv2.putText(
+                    draw_hud_pill(
                         frame,
-                        "👁 EYE BLINK DETECTED",
-                        (x, max(42, y_box - 32)),
-                        cv2.FONT_HERSHEY_DUPLEX,
-                        0.58,
-                        (0, 230, 118),
-                        1,
-                        cv2.LINE_AA,
+                        "Eye Blink Detected",
+                        x=x,
+                        y=max(46, y_box - 34),
+                        fg=BGR_MINT,
+                        bg=BGR_BG_MINT,
                     )
 
                 # Enrollment Capture Engine with Directional Pose Verification
@@ -1812,41 +1961,46 @@ class FaceSetupGUI:
 
                     # On-screen HUD for directional guidance
                     if in_cooldown:
-                        status_text = f"STEP {count}/{self.config.enroll_frame_count} CAPTURED! GET READY..."
-                        status_color = (0, 240, 255)  # Cyan
+                        status_text = f"Step {count}/{self.config.enroll_frame_count} Captured! Preparing..."
+                        status_fg = BGR_SKY
+                        status_bg = BGR_BG_PILL
                     elif target_dir == "BLINK":
                         if blink_state.is_blinking:
-                            status_text = "✓ BLINK DETECTED! VERIFIED"
-                            status_color = (0, 230, 118)
+                            status_text = "✓ Blink Verified"
+                            status_fg = BGR_MINT
+                            status_bg = BGR_BG_MINT
                         else:
-                            status_text = "CHALLENGE: BLINK YOUR EYES NOW"
-                            status_color = (0, 240, 255)
+                            status_text = "Action: Blink eyes naturally"
+                            status_fg = BGR_SKY
+                            status_bg = BGR_BG_PILL
                     elif target_dir == "SMILE":
                         if direction_matched:
                             if getattr(self.smile_detector, "teeth_detected", False):
-                                status_text = "✓ TEETH & SMILE VERIFIED 😊"
+                                status_text = "✓ Teeth & Smile Verified 😊"
                             else:
-                                status_text = "✓ SMILE DETECTED! VERIFIED 😊"
-                            status_color = (0, 230, 118)
+                                status_text = "✓ Smile Verified 😊"
+                            status_fg = BGR_MINT
+                            status_bg = BGR_BG_MINT
                         else:
-                            status_text = "CHALLENGE: SMILE (SHOW TEETH) 😊"
-                            status_color = (0, 240, 255)
+                            status_text = "Action: Smile gently 😊"
+                            status_fg = BGR_SKY
+                            status_bg = BGR_BG_PILL
                     elif direction_matched:
-                        status_text = f"HOLD {target_dir} ({self.pose_hold_count}/{self.target_hold_needed})"
-                        status_color = (0, 230, 118)  # Emerald
+                        status_text = f"Holding {target_dir} ({self.pose_hold_count}/{self.target_hold_needed})"
+                        status_fg = BGR_MINT
+                        status_bg = BGR_BG_MINT
                     else:
-                        status_text = f"ACTION: {prompt_title} (NOW: {current_dir})"
-                        status_color = (0, 190, 255)  # Amber-yellow/cyan
+                        status_text = f"Action: {prompt_title} (Current: {current_dir})"
+                        status_fg = BGR_AMBER
+                        status_bg = BGR_BG_PILL
 
-                    cv2.putText(
+                    draw_hud_pill(
                         frame,
                         status_text,
-                        (max(20, x), min(h - 20, y_box + bh + 30)),
-                        cv2.FONT_HERSHEY_DUPLEX,
-                        0.6,
-                        status_color,
-                        1,
-                        cv2.LINE_AA,
+                        x=max(16, x),
+                        y=min(h - 16, y_box + bh + 32),
+                        fg=status_fg,
+                        bg=status_bg,
                     )
 
                     if (
@@ -1906,42 +2060,42 @@ class FaceSetupGUI:
                     )
 
                     struct_pct = int(best_match_res.structure_score * 100) if best_match_res else 0
-                    struct_tag = f" • BONE:{struct_pct}%" if struct_pct > 0 else ""
+                    struct_tag = f" • Bone: {struct_pct}%" if struct_pct > 0 else ""
 
                     min_pct = getattr(self.config, "min_match_percent", 92.0)
                     if matched and is_live:
                         if has_blinked:
-                            status_msg = f"✓ VERIFIED: {matched_name} ({match_pct:.1f}% >= {min_pct:.0f}%{struct_tag})"
-                            status_c = (0, 230, 118)
+                            status_msg = f"✓ Verified: {matched_name} ({match_pct:.1f}% >= {min_pct:.0f}%{struct_tag})"
+                            status_fg = BGR_MINT
+                            status_bg = BGR_BG_MINT
                         else:
-                            status_msg = f"MATCH: {matched_name} ({match_pct:.1f}% >= {min_pct:.0f}%{struct_tag}) • BLINK"
-                            status_c = (0, 240, 255)
+                            status_msg = f"Match: {matched_name} ({match_pct:.1f}%) • Blink to verify"
+                            status_fg = BGR_SKY
+                            status_bg = BGR_BG_PILL
                     else:
-                        status_msg = f"UNKNOWN / SPOOF ({match_pct:.1f}% < {min_pct:.0f}%)"
-                        status_c = (63, 61, 244)
+                        status_msg = f"Unknown Face ({match_pct:.1f}% < {min_pct:.0f}%)"
+                        status_fg = BGR_CORAL
+                        status_bg = BGR_BG_ROSE
 
-                    cv2.putText(
+                    draw_hud_pill(
                         frame,
                         status_msg,
-                        (x, y_box + bh + 24),
-                        cv2.FONT_HERSHEY_DUPLEX,
-                        0.58,
-                        status_c,
-                        1,
-                        cv2.LINE_AA,
+                        x=max(16, x),
+                        y=min(h - 16, y_box + bh + 32),
+                        fg=status_fg,
+                        bg=status_bg,
                     )
 
                     # Show cranial bone invariance badge if verified
                     if best_match_res and best_match_res.cranial_verified:
-                        cv2.putText(
+                        draw_hud_pill(
                             frame,
-                            f"CRANIAL STRUCTURE: {struct_pct}% (SKULL INVARIANT MATCH)",
-                            (x, min(h - 10, y_box + bh + 46)),
-                            cv2.FONT_HERSHEY_DUPLEX,
-                            0.46,
-                            (0, 240, 255),
-                            1,
-                            cv2.LINE_AA,
+                            f"Cranial Invariant Match: {struct_pct}%",
+                            x=max(16, x),
+                            y=min(h - 16, y_box + bh + 58),
+                            fg=BGR_SKY,
+                            bg=BGR_BG_PILL,
+                            font_scale=0.46,
                         )
             else:
                 self.meter_conf.set_value(0.0, "0%", TEXT_MUTED)

@@ -24,6 +24,40 @@ import numpy as np
 from facelock import config as cfg
 from facelock.camera import Camera
 from facelock.face_engine import FaceEngine
+from facelock.gui import (
+    BGR_AMBER,
+    BGR_BG_MINT,
+    BGR_BG_PILL,
+    BGR_BG_ROSE,
+    BGR_CORAL,
+    BGR_MINT,
+    BGR_SKY,
+    BG_APP,
+    BG_SURFACE,
+    BG_SURFACE_ALT,
+    BG_SURFACE_HOVER,
+    BORDER_COLOR,
+    COLOR_AMBER,
+    COLOR_CYAN,
+    COLOR_EMERALD,
+    COLOR_EMERALD_BG,
+    COLOR_ROSE,
+    COLOR_ROSE_BG,
+    COLOR_SKY,
+    FONT_BODY,
+    FONT_BODY_BOLD,
+    FONT_CAPTION,
+    FONT_CHIP,
+    FONT_SECTION,
+    FONT_SUBTITLE,
+    FONT_TITLE,
+    ModernButton,
+    TEXT_MAIN,
+    TEXT_MUTED,
+    TEXT_SUBTLE,
+    center_window_on_monitor,
+    draw_hud_pill,
+)
 from facelock.liveness import (
     analyze_facial_pose,
     calculate_eye_openness,
@@ -47,8 +81,9 @@ class CalibrateStudio:
 
         self.root = tk.Tk(className="facelock")
         self.root.title("FaceLock — Camera Diagnostic & Biometric Calibration")
-        self.root.configure(bg="#090D16")
-        self.root.minsize(1040, 720)
+        self.root.configure(bg=BG_APP)
+        self.root.minsize(1120, 760)
+        center_window_on_monitor(self.root, 1260, 840)
 
         if LOGO_PATH.exists():
             try:
@@ -82,145 +117,148 @@ class CalibrateStudio:
 
     def _build_ui(self):
         # Top Header
-        top_bar = tk.Frame(self.root, bg="#111827", height=60, highlightthickness=1, highlightbackground="#1F2937")
+        top_bar = tk.Frame(self.root, bg=BG_SURFACE, height=60, highlightthickness=1, highlightbackground=BORDER_COLOR)
         top_bar.pack(fill=tk.X, side=tk.TOP)
         top_bar.pack_propagate(False)
 
-        top_inner = tk.Frame(top_bar, bg="#111827")
+        top_inner = tk.Frame(top_bar, bg=BG_SURFACE)
         top_inner.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
         tk.Label(
             top_inner,
-            text="🎯 BIOMETRIC CALIBRATION & CAMERA DIAGNOSTIC",
-            font=("Helvetica", 13, "bold"),
-            fg="#00F0FF",
-            bg="#111827",
+            text="🎯  Biometric Calibration & Camera Diagnostic",
+            font=FONT_TITLE,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
         ).pack(side=tk.LEFT)
 
         self.status_pill = tk.Label(
             top_inner,
             text="LIVE TELEMETRY ACTIVE",
-            font=("Helvetica", 10, "bold"),
-            fg="#00E676",
-            bg="#064E3B",
+            font=FONT_CHIP,
+            fg=COLOR_EMERALD,
+            bg=COLOR_EMERALD_BG,
             padx=12,
             pady=4,
         )
         self.status_pill.pack(side=tk.RIGHT)
 
         # Main Layout: Left Video, Right Diagnostic Control Deck
-        main_content = tk.Frame(self.root, bg="#090D16")
+        main_content = tk.Frame(self.root, bg=BG_APP)
         main_content.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
 
         # Video Panel
-        video_wrap = tk.Frame(main_content, bg="#0F172A", highlightthickness=1, highlightbackground="#1E293B")
+        video_wrap = tk.Frame(main_content, bg=BG_SURFACE, highlightthickness=1, highlightbackground=BORDER_COLOR)
         video_wrap.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
 
-        self.video_lbl = tk.Label(video_wrap, bg="#020617")
+        self.video_lbl = tk.Label(video_wrap, bg="#080C14")
         self.video_lbl.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # Right Control Panel
-        right_panel = tk.Frame(main_content, bg="#0F172A", width=360, highlightthickness=1, highlightbackground="#1E293B")
+        right_panel = tk.Frame(main_content, bg=BG_SURFACE, width=360, highlightthickness=1, highlightbackground=BORDER_COLOR)
         right_panel.pack(side=tk.RIGHT, fill=tk.Y)
         right_panel.pack_propagate(False)
 
-        inner_right = tk.Frame(right_panel, bg="#0F172A")
+        inner_right = tk.Frame(right_panel, bg=BG_SURFACE)
         inner_right.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
 
         tk.Label(
             inner_right,
             text="REAL-TIME TELEMETRY",
-            font=("Helvetica", 11, "bold"),
-            fg="#F8FAFC",
-            bg="#0F172A",
+            font=FONT_SECTION,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
         ).pack(anchor="w", pady=(0, 10))
 
         # Telemetry labels card
-        telem_card = tk.Frame(inner_right, bg="#1E293B", padx=12, pady=10)
+        telem_card = tk.Frame(inner_right, bg=BG_SURFACE_ALT, padx=12, pady=10)
         telem_card.pack(fill=tk.X, pady=(0, 15))
 
-        self.lbl_v_ratio = tk.Label(telem_card, text="Vertical Ratio (v): --", font=("Helvetica", 10), fg="#38BDF8", bg="#1E293B")
+        self.lbl_v_ratio = tk.Label(telem_card, text="Vertical Ratio (v): --", font=FONT_BODY, fg=COLOR_CYAN, bg=BG_SURFACE_ALT)
         self.lbl_v_ratio.pack(anchor="w", pady=2)
 
-        self.lbl_h_offset = tk.Label(telem_card, text="Horizontal Offset (h): --", font=("Helvetica", 10), fg="#38BDF8", bg="#1E293B")
+        self.lbl_h_offset = tk.Label(telem_card, text="Horizontal Offset (h): --", font=FONT_BODY, fg=COLOR_CYAN, bg=BG_SURFACE_ALT)
         self.lbl_h_offset.pack(anchor="w", pady=2)
 
-        self.lbl_pose = tk.Label(telem_card, text="Pose Direction: --", font=("Helvetica", 10, "bold"), fg="#00F0FF", bg="#1E293B")
+        self.lbl_pose = tk.Label(telem_card, text="Pose Direction: --", font=FONT_BODY_BOLD, fg=TEXT_MAIN, bg=BG_SURFACE_ALT)
         self.lbl_pose.pack(anchor="w", pady=2)
 
-        self.lbl_openness = tk.Label(telem_card, text="Eye Openness: --", font=("Helvetica", 10), fg="#34D399", bg="#1E293B")
+        self.lbl_openness = tk.Label(telem_card, text="Eye Openness: --", font=FONT_BODY, fg=COLOR_EMERALD, bg=BG_SURFACE_ALT)
         self.lbl_openness.pack(anchor="w", pady=2)
 
-        self.lbl_noise_floor = tk.Label(telem_card, text="Noise Floor: Calibrating...", font=("Helvetica", 9), fg="#94A3B8", bg="#1E293B")
+        self.lbl_noise_floor = tk.Label(telem_card, text="Noise Floor: Calibrating...", font=FONT_CAPTION, fg=TEXT_MUTED, bg=BG_SURFACE_ALT)
         self.lbl_noise_floor.pack(anchor="w", pady=2)
 
         # Action Buttons
         tk.Label(
             inner_right,
             text="CALIBRATION & DATA ACTIONS",
-            font=("Helvetica", 11, "bold"),
-            fg="#F8FAFC",
-            bg="#0F172A",
+            font=FONT_SECTION,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE,
         ).pack(anchor="w", pady=(10, 8))
 
-        self.btn_train = tk.Button(
+        self.btn_train = ModernButton(
             inner_right,
             text="🎯  Start Guided Calibration (3 Steps)",
-            font=("Helvetica", 10, "bold"),
-            bg="#00F0FF",
-            fg="#000000",
-            activebackground="#38F4FF",
+            font=FONT_BODY_BOLD,
+            bg_color=COLOR_CYAN,
+            fg_color="#0B1320",
+            hover_color="#7DD3FC",
+            hover_fg="#0B1320",
             padx=12,
             pady=10,
-            relief=tk.FLAT,
             command=self._start_calibration,
         )
         self.btn_train.pack(fill=tk.X, pady=6)
 
-        self.btn_record = tk.Button(
+        self.btn_record = ModernButton(
             inner_right,
             text="📸  Record 5s Diagnostic Footage",
-            font=("Helvetica", 10, "bold"),
-            bg="#1E293B",
-            fg="#F8FAFC",
-            activebackground="#334155",
+            font=FONT_BODY_BOLD,
+            bg_color=BG_SURFACE_ALT,
+            fg_color=TEXT_MAIN,
+            hover_color=BG_SURFACE_HOVER,
+            hover_fg="#FFFFFF",
             padx=12,
             pady=10,
-            relief=tk.FLAT,
             command=self._start_recording,
         )
         self.btn_record.pack(fill=tk.X, pady=6)
 
-        self.btn_apply_defaults = tk.Button(
+        self.btn_apply_defaults = ModernButton(
             inner_right,
             text="↺  Reset to Recommended Defaults",
-            font=("Helvetica", 9),
-            bg="#0F172A",
-            fg="#94A3B8",
-            relief=tk.FLAT,
+            font=FONT_BODY,
+            bg_color=BG_SURFACE,
+            fg_color=TEXT_MUTED,
+            hover_color=BG_SURFACE_ALT,
+            hover_fg=TEXT_MAIN,
+            padx=12,
+            pady=8,
             command=self._reset_defaults,
         )
         self.btn_apply_defaults.pack(fill=tk.X, pady=4)
 
         # Instruction / Progress Box
-        self.guide_box = tk.Frame(inner_right, bg="#111827", highlightthickness=1, highlightbackground="#374151", padx=12, pady=12)
+        self.guide_box = tk.Frame(inner_right, bg=BG_SURFACE_ALT, highlightthickness=1, highlightbackground=BORDER_COLOR, padx=12, pady=12)
         self.guide_box.pack(fill=tk.BOTH, expand=True, pady=(15, 0))
 
         self.guide_title = tk.Label(
             self.guide_box,
             text="System Ready",
-            font=("Helvetica", 11, "bold"),
-            fg="#00F0FF",
-            bg="#111827",
+            font=FONT_BODY_BOLD,
+            fg=COLOR_CYAN,
+            bg=BG_SURFACE_ALT,
         )
         self.guide_title.pack(anchor="w")
 
         self.guide_desc = tk.Label(
             self.guide_box,
             text="Click 'Start Guided Calibration' to automatically fit thresholds to your webcam and facial geometry.",
-            font=("Helvetica", 9),
-            fg="#94A3B8",
-            bg="#111827",
+            font=FONT_BODY,
+            fg=TEXT_MUTED,
+            bg=BG_SURFACE_ALT,
             wraplength=300,
             justify=tk.LEFT,
         )
@@ -236,8 +274,8 @@ class CalibrateStudio:
             "openness_steady": [],
             "openness_blinks": [],
         }
-        self.status_pill.configure(text="CALIBRATION STEP 1/3", bg="#0284C7", fg="#FFFFFF")
-        self.guide_title.configure(text="STEP 1: LOOK STRAIGHT", fg="#00F0FF")
+        self.status_pill.configure(text="CALIBRATION STEP 1/3", bg="#0369A1", fg="#F8FAFC")
+        self.guide_title.configure(text="STEP 1: LOOK STRAIGHT", fg=COLOR_SKY)
         self.guide_desc.configure(
             text="Look naturally at your screen in your normal posture. The system is measuring your skull's resting neutral gaze..."
         )
@@ -247,8 +285,8 @@ class CalibrateStudio:
         self.recording_frames.clear()
         self.recording_telemetry.clear()
         self.recording_end_time = time.monotonic() + 5.0
-        self.status_pill.configure(text="● RECORDING FOOTAGE", bg="#BE123C", fg="#FFFFFF")
-        self.guide_title.configure(text="Recording Diagnostic Footage...", fg="#F43F5E")
+        self.status_pill.configure(text="● RECORDING FOOTAGE", bg=COLOR_ROSE_BG, fg=COLOR_ROSE)
+        self.guide_title.configure(text="Recording Diagnostic Footage...", fg=COLOR_ROSE)
         self.guide_desc.configure(text="Capturing 5 seconds of real frames and raw landmarks. Move, blink, or turn naturally.")
 
     def _reset_defaults(self):
@@ -294,38 +332,33 @@ class CalibrateStudio:
                 self.lbl_pose.configure(text=f"Pose Direction: [{direction}]")
                 self.lbl_openness.configure(text=f"Eye Openness: {openness:.1f}")
 
-                # Draw Visual Overlay
-                x, y, bw, bh = box
-                color = (0, 230, 118) if direction == "CENTER" else (0, 240, 255)
-                cv2.rectangle(frame, (x, y), (x + bw, y + bh), color, 2)
+                # Sleek, soothing corner reticle
+                x, y_box, bw, bh = box
+                color = BGR_MINT if direction == "CENTER" else BGR_SKY
+                cr = int(min(bw, bh) * 0.18)
+                t = 2
+                cv2.line(frame, (x, y_box), (x + cr, y_box), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x, y_box), (x, y_box + cr), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x + bw, y_box), (x + bw - cr, y_box), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x + bw, y_box), (x + bw, y_box + cr), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x, y_box + bh), (x + cr, y_box + bh), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x, y_box + bh), (x, y_box + bh - cr), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x + bw, y_box + bh), (x + bw - cr, y_box + bh), color, t, cv2.LINE_AA)
+                cv2.line(frame, (x + bw, y_box + bh), (x + bw, y_box + bh - cr), color, t, cv2.LINE_AA)
 
-                # Draw cranial wireframe
-                re_pt = (int(landmarks[0]), int(landmarks[1]))
-                le_pt = (int(landmarks[2]), int(landmarks[3]))
-                no_pt = (int(landmarks[4]), int(landmarks[5]))
-                rm_pt = (int(landmarks[6]), int(landmarks[7]))
-                lm_pt = (int(landmarks[8]), int(landmarks[9]))
-
-                wf_col = (0, 180, 220)
-                cv2.line(frame, re_pt, le_pt, wf_col, 1, cv2.LINE_AA)
-                cv2.line(frame, le_pt, no_pt, wf_col, 1, cv2.LINE_AA)
-                cv2.line(frame, no_pt, re_pt, wf_col, 1, cv2.LINE_AA)
-                cv2.line(frame, no_pt, rm_pt, wf_col, 1, cv2.LINE_AA)
-                cv2.line(frame, no_pt, lm_pt, wf_col, 1, cv2.LINE_AA)
-                cv2.line(frame, rm_pt, lm_pt, wf_col, 1, cv2.LINE_AA)
-
+                # Subtle biometric landmark accents (clean, gentle dots)
                 for i in range(5):
-                    cv2.circle(frame, (int(landmarks[i*2]), int(landmarks[i*2+1])), 3, (0, 240, 255), -1)
+                    cv2.circle(frame, (int(landmarks[i * 2]), int(landmarks[i * 2 + 1])), 2, color, -1, cv2.LINE_AA)
 
-                cv2.putText(
+                # Live metrics HUD pill
+                hud_text = f"[{direction}]  v:{v_rat:.2f}  h:{h_off:+.2f}  eye:{openness:.1f}"
+                draw_hud_pill(
                     frame,
-                    f"[{direction}] v:{v_rat:.2f} h:{h_off:+.2f} eye:{openness:.1f}",
-                    (x, max(22, y - 8)),
-                    cv2.FONT_HERSHEY_DUPLEX,
-                    0.52,
-                    color,
-                    1,
-                    cv2.LINE_AA,
+                    hud_text,
+                    x=x,
+                    y=max(22, y_box - 10),
+                    fg=color,
+                    bg=BGR_BG_PILL,
                 )
 
                 # Handle Calibration State Machine
@@ -341,8 +374,8 @@ class CalibrateStudio:
                             # Advance to Step 2
                             self.calib_step = 2
                             self.calib_timer = now
-                            self.status_pill.configure(text="CALIBRATION STEP 2/3", bg="#0284C7")
-                            self.guide_title.configure(text="STEP 2: KEEP EYES OPEN")
+                            self.status_pill.configure(text="CALIBRATION STEP 2/3", bg="#0369A1", fg="#F8FAFC")
+                            self.guide_title.configure(text="STEP 2: KEEP EYES OPEN", fg=COLOR_SKY)
                             self.guide_desc.configure(text="Keep eyes open naturally without blinking. Measuring camera sensor noise floor...")
 
                     elif self.calib_step == 2:
@@ -354,8 +387,8 @@ class CalibrateStudio:
                             # Advance to Step 3
                             self.calib_step = 3
                             self.calib_timer = now
-                            self.status_pill.configure(text="CALIBRATION STEP 3/3", bg="#0284C7")
-                            self.guide_title.configure(text="STEP 3: BLINK NATURALLY")
+                            self.status_pill.configure(text="CALIBRATION STEP 3/3", bg="#0369A1", fg="#F8FAFC")
+                            self.guide_title.configure(text="STEP 3: BLINK NATURALLY", fg=COLOR_SKY)
                             self.guide_desc.configure(text="Blink your eyes 2 or 3 times naturally now...")
 
                     elif self.calib_step == 3:
@@ -379,8 +412,14 @@ class CalibrateStudio:
                         "landmarks": landmarks.tolist(),
                         "box": box.tolist(),
                     })
-                    cv2.circle(frame, (30, 30), 10, (0, 0, 255), -1)
-                    cv2.putText(frame, "REC", (50, 36), cv2.FONT_HERSHEY_DUPLEX, 0.6, (0, 0, 255), 1)
+                    draw_hud_pill(
+                        frame,
+                        "● RECORDING 5s",
+                        x=24,
+                        y=34,
+                        fg=BGR_CORAL,
+                        bg=BGR_BG_ROSE,
+                    )
 
                     if now >= self.recording_end_time:
                         self._finish_recording()
@@ -396,7 +435,7 @@ class CalibrateStudio:
 
     def _finish_calibration(self):
         self.mode = "MONITOR"
-        self.status_pill.configure(text="CALIBRATION COMPLETE ✓", bg="#064E3B", fg="#00E676")
+        self.status_pill.configure(text="CALIBRATION COMPLETE ✓", bg=COLOR_EMERALD_BG, fg=COLOR_EMERALD)
 
         # 1. Compute empirical neutral v_ratio and h_offset
         v_list = self.calib_data["v_ratios"]
@@ -431,7 +470,7 @@ class CalibrateStudio:
             f"Saved to {cfg.CONFIG_PATH}"
         )
 
-        self.guide_title.configure(text="Calibration Model Trained ✓", fg="#00E676")
+        self.guide_title.configure(text="Calibration Model Trained ✓", fg=COLOR_EMERALD)
         self.guide_desc.configure(
             text=f"Trained: Neutral v={new_neutral_v:.2f}, h={new_neutral_h:+.2f}. Blink close ratio={calibrated_close_ratio:.2f}."
         )
@@ -440,7 +479,7 @@ class CalibrateStudio:
 
     def _finish_recording(self):
         self.mode = "MONITOR"
-        self.status_pill.configure(text="RECORDING SAVED ✓", bg="#064E3B", fg="#00E676")
+        self.status_pill.configure(text="RECORDING SAVED ✓", bg=COLOR_EMERALD_BG, fg=COLOR_EMERALD)
 
         timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         session_folder = CALIBRATION_DIR / f"session_{timestamp_str}"
@@ -457,7 +496,7 @@ class CalibrateStudio:
         with telemetry_file.open("w", encoding="utf-8") as f:
             json.dump(self.recording_telemetry, f, indent=2)
 
-        self.guide_title.configure(text="Diagnostic Footage Saved", fg="#00F0FF")
+        self.guide_title.configure(text="Diagnostic Footage Saved", fg=COLOR_SKY)
         self.guide_desc.configure(
             text=f"Saved {len(self.recording_frames)} frames and telemetry to:\n{session_folder}"
         )

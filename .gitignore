@@ -1,7 +1,14 @@
 /CLAUDE.md
 /.claude/
+.idea/
 
 .venv/
 *.egg-info/
 __pycache__/
 *.pyc
+
+# Local review documentation
+IMPROVEMENTS.md
+improvements.md
+tasks.md
+TASKS.md

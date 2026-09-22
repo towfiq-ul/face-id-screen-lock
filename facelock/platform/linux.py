@@ -13,25 +13,30 @@ class LinuxBackend(Backend):
     """Uses logind (loginctl) — works across GNOME/KDE/etc since it's the standard session API."""
 
     def _session_id(self) -> str | None:
-        sid = os.environ.get("XDG_SESSION_ID")
-        if sid:
-            return sid
+        # "Display" is logind's property for the user's graphical session id.
+        # Check this first so running from SSH or non-graphical terminal multiplexers
+        # still targets the desktop graphical session rather than the terminal session.
         try:
-            # "Display" is logind's property for the user's graphical session id;
-            # more reliable than the env var for a systemd --user service.
             out = subprocess.check_output(
                 ["loginctl", "show-user", str(os.getuid()), "-p", "Display", "--value"],
                 text=True,
+                timeout=3.0,
             ).strip()
-            return out or None
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return None
+            if out:
+                return out
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+
+        return os.environ.get("XDG_SESSION_ID") or None
 
     def lock(self) -> None:
         sid = self._session_id()
         cmd = ["loginctl", "lock-session"] + ([sid] if sid else [])
         logger.info("Locking session: %s", cmd)
-        subprocess.run(cmd, check=False)
+        try:
+            subprocess.run(cmd, check=False, timeout=3.0)
+        except subprocess.TimeoutExpired:
+            logger.warning("Lock session command timed out")
 
     def is_locked(self) -> bool:
         sid = self._session_id()
@@ -41,7 +46,8 @@ class LinuxBackend(Backend):
             out = subprocess.check_output(
                 ["loginctl", "show-session", sid, "-p", "LockedHint", "--value"],
                 text=True,
+                timeout=3.0,
             ).strip()
             return out == "yes"
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
             return False

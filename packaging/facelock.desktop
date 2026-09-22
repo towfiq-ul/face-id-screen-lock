@@ -1,0 +1,22 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=FaceLock
+GenericName=Biometric Screen Lock
+Comment=Webcam-based biometric face recognition auto-lock & unlock setup center
+Exec=facelock-gui
+Icon=facelock
+Terminal=false
+Categories=System;Security;
+Keywords=face;lock;biometric;security;webcam;screenlock;auth;pam;
+StartupNotify=true
+StartupWMClass=facelock
+Actions=Calibrate;Verify;
+
+[Desktop Action Calibrate]
+Name=Camera Diagnostic & Calibration
+Exec=facelock-calibrate
+
+[Desktop Action Verify]
+Name=Test Biometric Verification
+Exec=facelock-test

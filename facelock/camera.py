@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import cv2
 import numpy as np
@@ -14,17 +15,29 @@ class Camera:
     def __init__(self, index: int = 0):
         self.index = index
         self._cap: cv2.VideoCapture | None = None
+        self._open_failed_logged = False
 
-    def open(self) -> bool:
+    def open(self, retries: int = 3, delay: float = 0.15) -> bool:
         if self._cap is not None:
             return True
-        cap = cv2.VideoCapture(self.index)
-        if not cap.isOpened():
+        for attempt in range(retries):
+            cap = cv2.VideoCapture(self.index)
+            if cap.isOpened():
+                # Request minimal buffer size to avoid stale buffered frames under V4L2
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                if self._open_failed_logged:
+                    logger.info("Successfully opened camera index %s", self.index)
+                    self._open_failed_logged = False
+                self._cap = cap
+                return True
             cap.release()
+            if attempt < retries - 1:
+                time.sleep(delay)
+
+        if not self._open_failed_logged:
             logger.warning("Could not open camera index %s", self.index)
-            return False
-        self._cap = cap
-        return True
+            self._open_failed_logged = True
+        return False
 
     def read(self) -> np.ndarray | None:
         if self._cap is None and not self.open():

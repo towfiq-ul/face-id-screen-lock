@@ -1,109 +1,164 @@
-# facelock
+<p align="center">
+  <img src="facelock/assets/splash_banner.png" alt="FaceLock Banner" width="700" />
+</p>
 
-A webcam-based auto-lock daemon for Linux. It watches your webcam and locks
-the screen if the enrolled ("known") face hasn't been seen for a
-configurable amount of time (default 60s).
+# FaceLock
 
-Auto-*unlock* (recognizing your face at the lock screen and logging you back
-in) is intentionally **not** implemented here — that's handled by
-[Howdy](https://github.com/boltgolt/howdy), a mature project that already
-integrates face recognition into PAM safely. This repo only builds the half
-Howdy doesn't: continuously watching the webcam while the session is
-unlocked and triggering the lock when the known face disappears.
+A lightweight, all-in-one biometric security system with built-in **3D liveness detection, anti-spoofing, continuous auto-lock, and lock-screen auto-unlock (PAM)** for Linux. It continuously monitors your webcam while your session is active and automatically locks the screen when you step away. When locked, waking the screen activates FaceLock's built-in PAM authenticator to seamlessly unlock your desktop using your face — **completely self-contained with no external tools (like Howdy) required**.
 
-Tested on Ubuntu 24.04, GNOME on X11, GDM.
+Tested on **Ubuntu 24.04**, GNOME on X11 / Wayland, GDM.
 
-## How it works
+---
 
-- Face detection/recognition uses OpenCV's bundled YuNet (detector) and
-  SFace (recognizer) ONNX models — no `dlib`/`cmake` build step required.
-- `facelock-enroll` captures a handful of frames of your face and stores
-  their embeddings at `~/.local/share/facelock/known_face.npy`.
-- `facelock-monitor` polls the webcam every `check_interval_seconds`. While
-  the session is unlocked, if the known face isn't detected for
-  `unknown_face_timeout_seconds`, it calls `loginctl lock-session`. While
-  the session is already locked, it releases the camera and just polls
-  `LockedHint` — so it never fights Howdy for the camera during an unlock
-  attempt.
+## ✨ Features
 
-## Setup
+- 🛡️ **Continuous Inactivity Auto-Lock**: Automatically locks the desktop when you step away.
+- 👁️ **3D Liveness & Anti-Spoofing**: Uses 3D head-pose estimation (`cv2.solvePnP`) to track involuntary human micro-movements and posture drift, rejecting static printed photos and screen replays.
+- 🖥️ **Interactive Graphical Setup Wizard (`facelock-gui`)**: Live webcam HUD with cyber-bracketed face boxes, facial landmarks, 3D pose angles, step-by-step guided captures, and real-time verification testing.
+- ⚡ **Zero Heavy Build Toolchains**: Powered by OpenCV's bundled YuNet (detector) and SFace (recognizer) ONNX models — no `dlib`, `cmake`, or C++ compilation required.
+- 🤝 **Camera-Friendly Coexistence**: Releases the webcam immediately upon session lock so PAM unlockers (like Howdy) have unobstructed hardware access.
+- 🚀 **One-Command Installation**: Simple curl installer that sets up `/opt/facelock`, command symlinks, and a `systemd --user` service.
+
+---
+
+## 🚀 Install
+
+Install FaceLock system-wide in one command via `curl`:
 
 ```bash
-make venv     # creates .venv, installs this package into it
-make enroll   # capture your face (look at the camera, turn your head slightly between shots)
-make run      # run the monitor in the foreground to try it out
+curl -fsSL https://raw.githubusercontent.com/towfiq-ul/face-id-screen-lock/develop/install.sh | bash
 ```
 
-Config lives at `~/.config/facelock/config.yaml` (created with defaults on
-first run of anything that loads it):
+The installer displays a branded banner with percentage progress bars:
+1. Sets up an isolated Python environment at `/opt/facelock`.
+2. Symlinks `facelock-gui`, `facelock-enroll`, and `facelock-monitor` into `/usr/local/bin`.
+3. Installs and enables the `systemd --user` background service.
+4. Launches the **Face Setup GUI** wizard so you can enroll your face immediately.
+
+---
+
+## 🛠️ Local / Development Setup
+
+If you are developing or prefer running from a local git clone:
+
+```bash
+make venv           # creates .venv and installs facelock in editable mode
+make gui            # launch graphical setup wizard with splash banner & live camera HUD
+make calibrate      # interactive camera and biometric resting pose calibration studio
+make test-face      # test live camera feed against saved profile with interactive HUD
+make test-face-cli  # test live camera feed against saved profile in terminal mode
+make enroll         # (or CLI mode) capture your face from the terminal
+make test           # run the full automated unit test suite
+make run            # run the monitor daemon in the foreground for debugging
+```
+
+---
+
+## ⚙️ Configuration
+
+Configuration is automatically generated on first run at `~/.config/facelock/config.yaml`:
 
 ```yaml
-camera_index: 0
-check_interval_seconds: 2.0
-unknown_face_timeout_seconds: 60.0
-match_threshold: 0.363
-detection_score_threshold: 0.9
-enroll_frame_count: 8
+camera_index: 0                    # V4L2 webcam index (/dev/video0)
+check_interval_seconds: 2.0        # Seconds between camera polls
+unknown_face_timeout_seconds: 60.0 # Time without enrolled face before locking
+match_threshold: 0.363             # SFace cosine-similarity match threshold
+detection_score_threshold: 0.9     # YuNet face detection confidence
+enroll_frame_count: 8              # Number of distinct angles captured during setup
+liveness_enabled: true             # Enable anti-spoofing micro-movement & texture checks
+liveness_min_pose_variance: 0.2    # Minimum angular std dev in degrees across sliding window
+liveness_window_size: 5            # Number of consecutive observations in evaluation window
+texture_anti_spoof_enabled: true   # Check image sharpness/glare to detect screen replays
 ```
 
-## Running as a service
+All state lives under standard user XDG directories (`~/.config/facelock/`, `~/.local/share/facelock/`). FaceLock's background monitor daemon runs entirely in unprivileged user space.
+
+---
+
+## 🛡️ Liveness & Anti-Spoofing Architecture
+
+Unlike basic face detectors that can be bypassed with a printed photo or phone screen, FaceLock incorporates passive and active anti-spoofing defense:
+
+1. **3D Head-Pose Estimation (`cv2.solvePnP`)**:
+   Projects a canonical 3D facial model to YuNet’s 5 2D landmarks (eyes, nose, mouth corners) to calculate real-time pitch, yaw, and roll angles.
+2. **Temporal Micro-Movement Variance**:
+   Real humans continually produce involuntary micro-movements, breathing oscillations, and posture shifts. `LivenessTracker` monitors pose standard deviation across a sliding window. Inanimate 2D photos exhibit near-zero variance and are flagged as `static_pose_detected`.
+3. **Texture & Specular Glare Analysis**:
+   Evaluates Laplacian sharpness variance across the face ROI to detect out-of-focus prints, paper grain, and screen glare.
+4. **Interactive Multi-Angle Enrollment**:
+   During setup, the wizard enforces angular pose displacement across 8 angles, preventing users or attackers from enrolling a single static photo.
+
+---
+
+## 🔄 Running as a Service
+
+Control the background user daemon with `systemd`:
 
 ```bash
-make service-install    # installs + enables the systemd --user unit
-make service-logs       # follow its logs
-make service-uninstall  # stop + remove it
+make service-install    # installs and enables the systemd --user unit
+make service-logs       # follow real-time logs in journalctl
+make service-uninstall  # stop and remove the user service
 ```
 
-## System-wide install (standard FHS paths)
+Or directly via `systemctl`:
 
-`Makefile`/`make venv` above is the lightweight, repo-local dev setup. For a
-proper system install that puts things where Linux conventionally expects
-them:
+```bash
+systemctl --user status facelock-monitor
+systemctl --user restart facelock-monitor
+journalctl --user -u facelock-monitor -f
+```
+
+---
+
+## 📦 System-Wide Install & Uninstall
+
+From a local clone:
 
 ```bash
 sudo ./install.sh
 ```
 
-This installs to:
-
-- `/opt/facelock/venv` — self-contained venv + the installed package (`/opt`
-  is the standard location for a self-contained third-party application)
-- `/usr/local/bin/facelock-enroll`, `/usr/local/bin/facelock-monitor` —
-  symlinks onto `PATH` (standard location for locally-installed software not
-  managed by the distro's package manager)
-- `~/.config/systemd/user/facelock-monitor.service` — the per-user service
-  unit
-
-It also asks whether to enroll your face right away, then enables (and
-starts, if a face is already enrolled) the service. It writes an uninstaller
-to `/opt/facelock/uninstall.sh` reflecting exactly what it installed —
-remove everything with:
+To remove everything installed by the installer:
 
 ```bash
 sudo /opt/facelock/uninstall.sh
 ```
 
-The uninstaller leaves your enrolled face/config
-(`~/.local/share/facelock/`, `~/.config/facelock/`) in place; it prints how
-to remove those too if you want a fully clean uninstall.
+*(Your face profile and configuration at `~/.local/share/facelock/` and `~/.config/facelock/` are preserved during uninstallation).*
 
-## Real auto-unlock (Howdy)
+---
 
-To get real face-unlock at the lock screen, install
-[Howdy](https://github.com/boltgolt/howdy) separately and enroll with
-`sudo howdy add`. On Ubuntu 24.04 the official PPA's installer is currently
-broken (blocked by pip's "externally-managed-environment" restriction) — use
-the patched PPA from Panda Jim / UbuntuHandbook instead. Howdy's installer
-edits `/etc/pam.d/gdm-password` itself; this repo never touches system PAM
-files.
+## 🔐 Built-in Biometric Auto-Unlock (PAM)
+FaceLock includes its own native PAM authentication engine — **no Howdy or third-party packages required**!
 
-**Limitation:** like Howdy itself, this has no liveness/anti-spoofing check
-— a photo could plausibly fool the recognizer. Treat this as a convenience
-deterrent, not a real security boundary.
+When your screen is locked (e.g. via <kbd>Super</kbd> + <kbd>L</kbd> or auto-lock timeout):
+1. Wake the lock screen (tap <kbd>Space</kbd>, <kbd>Enter</kbd>, or move mouse).
+2. FaceLock's native PAM engine (`facelock-auth`) instantly activates the webcam, detects your face, verifies 3D liveness, and **unlocks your desktop in ~1 second**.
+3. If an unrecognized person is in front of the camera, it seamlessly falls back to standard password entry.
 
-## Scope
+To manage PAM auto-unlock:
 
-Linux only for now (single enrolled face). Multi-face and other platforms
-(Windows/macOS) are future work; the OS-specific piece is isolated behind
-`facelock/platform/base.py` so those can be added without touching the face
-recognition or monitor logic.
+```bash
+make pam-status     # check whether lock-screen auto-unlock is active
+make pam-enable     # enable FaceLock PAM unlock for lock screen (sudo)
+make pam-disable    # disable PAM unlock and revert to standard password
+```
+
+*(You can also enable face authentication for terminal `sudo` via `sudo facelock-pam enable --sudo`).*
+
+---
+
+## 🧪 Testing
+
+FaceLock includes a test suite covering configuration, camera buffers, platform session detection, anti-spoofing tracking, and GUI components:
+
+```bash
+make test
+```
+
+---
+
+## 🗺️ Scope & Roadmap
+
+- **Current**: Linux (GNOME/KDE on X11/Wayland with `logind`), up to 2 named biometric face profiles, RGB webcam, interactive GUI setup & calibration studio, anti-spoofing, native PAM auto-unlock.
+- **Future**: Dedicated IR camera support (`ir_camera_index`), Windows/macOS backend modules via `facelock.platform.base.Backend`.
